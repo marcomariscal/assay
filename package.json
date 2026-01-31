@@ -1,0 +1,32 @@
+{
+  "name": "rugscan",
+  "version": "0.1.0",
+  "description": "Pre-transaction security analysis for EVM agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "rugscan": "dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
+  },
+  "keywords": ["evm", "ethereum", "security", "agent", "web3", "smart-contracts"],
+  "author": "Marco Mariscal",
+  "license": "MIT",
+  "dependencies": {
+    "viem": "^2.21.0",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
