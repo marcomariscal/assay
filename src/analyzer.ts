@@ -87,7 +87,8 @@ export async function analyze(
 	const protocolMatch = await defillama.matchProtocol(addr, chain);
 
 	// 6. Token security (if it's a token)
-	const tokenSecurity = await goplus.getTokenSecurity(addr, chain);
+	const tokenSecurityResult = await goplus.getTokenSecurity(addr, chain);
+	const tokenSecurity = tokenSecurityResult.data;
 
 	// Build findings
 	if (!verified) {

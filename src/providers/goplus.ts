@@ -1,4 +1,4 @@
-import type { Chain, TokenSecurity } from "../types";
+import type { Chain, ProviderResult, TokenSecurity } from "../types";
 
 const GOPLUS_API = "https://api.gopluslabs.io/api/v1";
 
@@ -31,7 +31,8 @@ interface GoPlusTokenData {
 	is_proxy?: string;
 }
 
-function toBool(val: string | undefined): boolean {
+function toBool(val: string | undefined): boolean | undefined {
+	if (val === undefined) return undefined;
 	return val === "1";
 }
 
@@ -44,7 +45,7 @@ function toNumber(val: string | undefined): number | undefined {
 export async function getTokenSecurity(
 	address: string,
 	chain: Chain,
-): Promise<TokenSecurity | null> {
+): Promise<ProviderResult<TokenSecurity>> {
 	const chainId = CHAIN_IDS[chain];
 
 	try {
@@ -52,38 +53,41 @@ export async function getTokenSecurity(
 		const response = await fetch(url);
 
 		if (!response.ok) {
-			return null;
+			return { data: null, error: `goplus http ${response.status}` };
 		}
 
 		const data: GoPlusResponse = await response.json();
 
 		if (data.code !== 1 || !data.result) {
-			return null;
+			return { data: null, error: data.message || "goplus response error" };
 		}
 
 		const tokenData = data.result[address.toLowerCase()];
 		if (!tokenData) {
-			return null;
+			return { data: null };
 		}
 
 		return {
-			is_honeypot: toBool(tokenData.is_honeypot),
-			is_mintable: toBool(tokenData.is_mintable),
-			can_take_back_ownership: toBool(tokenData.can_take_back_ownership),
-			hidden_owner: toBool(tokenData.hidden_owner),
-			selfdestruct: toBool(tokenData.selfdestruct),
-			buy_tax: toNumber(tokenData.buy_tax),
-			sell_tax: toNumber(tokenData.sell_tax),
-			is_blacklisted: toBool(tokenData.is_blacklisted),
-			owner_can_change_balance: toBool(tokenData.owner_change_balance),
+			data: {
+				is_honeypot: toBool(tokenData.is_honeypot),
+				is_mintable: toBool(tokenData.is_mintable),
+				can_take_back_ownership: toBool(tokenData.can_take_back_ownership),
+				hidden_owner: toBool(tokenData.hidden_owner),
+				selfdestruct: toBool(tokenData.selfdestruct),
+				buy_tax: toNumber(tokenData.buy_tax),
+				sell_tax: toNumber(tokenData.sell_tax),
+				is_blacklisted: toBool(tokenData.is_blacklisted),
+				owner_can_change_balance: toBool(tokenData.owner_change_balance),
+			},
 		};
-	} catch {
-		return null;
+	} catch (error) {
+		const message = error instanceof Error ? error.message : "goplus request failed";
+		return { data: null, error: message };
 	}
 }
 
 export async function isToken(address: string, chain: Chain): Promise<boolean> {
 	// Quick check if GoPlus has data for this address (indicates it's a token)
 	const security = await getTokenSecurity(address, chain);
-	return security !== null;
+	return security.data !== null;
 }

@@ -10,6 +10,7 @@ export type FindingCode =
 	| "SELFDESTRUCT"
 	| "OWNER_DRAIN"
 	// Warning
+	| "UNKNOWN_SECURITY"
 	| "BLACKLIST"
 	| "HIGH_TAX"
 	| "NEW_CONTRACT"
@@ -40,6 +41,7 @@ export interface ContractInfo {
 	tx_count?: number;
 	is_proxy: boolean;
 	implementation?: string;
+	beacon?: string;
 }
 
 export interface Confidence {
@@ -82,19 +84,25 @@ export interface ProtocolMatch {
 }
 
 export interface TokenSecurity {
-	is_honeypot: boolean;
-	is_mintable: boolean;
-	can_take_back_ownership: boolean;
-	hidden_owner: boolean;
-	selfdestruct: boolean;
+	is_honeypot: boolean | undefined;
+	is_mintable: boolean | undefined;
+	can_take_back_ownership: boolean | undefined;
+	hidden_owner: boolean | undefined;
+	selfdestruct: boolean | undefined;
 	buy_tax?: number;
 	sell_tax?: number;
-	is_blacklisted: boolean;
-	owner_can_change_balance: boolean;
+	is_blacklisted: boolean | undefined;
+	owner_can_change_balance: boolean | undefined;
 }
 
 export interface ProxyInfo {
 	is_proxy: boolean;
 	proxy_type?: "eip1967" | "uups" | "beacon" | "minimal" | "unknown";
 	implementation?: string;
+	beacon?: string;
+}
+
+export interface ProviderResult<T> {
+	data: T | null;
+	error?: string;
 }
