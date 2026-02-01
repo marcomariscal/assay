@@ -49,3 +49,8 @@ type ApprovalRisk = {
 ### Priority
 High — this catches 80% of phishing attacks.
 
+---
+
+## M5: AI Contract Analysis
+
+Add LLM-based analysis for verified source code with a fast pre-screen and optional deep pass. Output structured `AIAnalysis` with plain-English summary, concrete risks, functions of concern, and confidence. Integrate via `--ai`/`--deep`, cache by source hash, and rate limit provider calls.
