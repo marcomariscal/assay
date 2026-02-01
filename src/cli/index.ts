@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { analyze } from "../analyzer";
-import type { Chain, Config, Finding } from "../types";
+import type { Chain, Config } from "../types";
+import { createProgressRenderer, renderError, renderHeading, renderResultBox } from "./ui";
 
 const VALID_CHAINS: Chain[] = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
 
@@ -40,16 +41,6 @@ function getConfig(): Config {
 	};
 }
 
-function formatFinding(finding: Finding): string {
-	const icons: Record<string, string> = {
-		danger: "🚨",
-		warning: "⚠️",
-		info: "ℹ️",
-		safe: "✅",
-	};
-	return `${icons[finding.level]} [${finding.code}] ${finding.message}`;
-}
-
 async function main() {
 	const args = process.argv.slice(2);
 
@@ -67,7 +58,7 @@ async function main() {
 	// Parse arguments
 	const address = args[1];
 	if (!address || !address.startsWith("0x")) {
-		console.error("Error: Please provide a valid contract address");
+		console.error(renderError("Error: Please provide a valid contract address"));
 		process.exit(1);
 	}
 
@@ -85,54 +76,16 @@ async function main() {
 
 	const config = getConfig();
 
-	console.log(`\nAnalyzing ${address} on ${chain}...\n`);
+	console.log(renderHeading(`Analyzing ${address} on ${chain}...`));
+	console.log("");
 
 	try {
-		const result = await analyze(address, chain, config);
+		const renderProgress = createProgressRenderer(process.stdout.isTTY);
+		const result = await analyze(address, chain, config, renderProgress);
 
-		// Print contract info
-		console.log("Contract:");
-		console.log(`  Address: ${result.contract.address}`);
-		console.log(`  Chain: ${result.contract.chain}`);
-		if (result.contract.name) {
-			console.log(`  Name: ${result.contract.name}`);
-		}
-		console.log(`  Verified: ${result.contract.verified ? "Yes" : "No"}`);
-		if (result.contract.age_days !== undefined) {
-			console.log(`  Age: ${result.contract.age_days} days`);
-		}
-		if (result.contract.tx_count !== undefined) {
-			console.log(`  Transactions: ${result.contract.tx_count}`);
-		}
-		if (result.contract.is_proxy) {
-			console.log(`  Proxy: Yes (${result.contract.implementation})`);
-		}
-		if (result.protocol) {
-			console.log(`  Protocol: ${result.protocol}`);
-		}
-
-		// Print findings
-		console.log("\nFindings:");
-		for (const finding of result.findings) {
-			console.log(`  ${formatFinding(finding)}`);
-		}
-
-		// Print confidence
-		console.log(`\nConfidence: ${result.confidence.level.toUpperCase()}`);
-		if (result.confidence.reasons.length > 0) {
-			for (const reason of result.confidence.reasons) {
-				console.log(`  - ${reason}`);
-			}
-		}
-
-		// Print recommendation
-		const recIcons: Record<string, string> = {
-			danger: "🚨 DANGER",
-			warning: "⚠️ WARNING",
-			caution: "⚡ CAUTION",
-			ok: "✅ OK",
-		};
-		console.log(`\nRecommendation: ${recIcons[result.recommendation]}\n`);
+		console.log("");
+		console.log(renderResultBox(result));
+		console.log("");
 
 		// Exit code based on recommendation
 		if (result.recommendation === "danger") {
@@ -142,7 +95,8 @@ async function main() {
 			process.exit(1);
 		}
 	} catch (error) {
-		console.error("Analysis failed:", error);
+		console.error(renderError("Analysis failed:"));
+		console.error(error);
 		process.exit(1);
 	}
 }

@@ -11,12 +11,14 @@ import type {
 	ContractInfo,
 	Finding,
 	Recommendation,
+	TokenSecurity,
 } from "./types";
 
 export async function analyze(
 	address: string,
 	chain: Chain,
 	config?: Config,
+	progress?: (event: { provider: string; status: "start" | "success" | "error"; message?: string }) => void,
 ): Promise<AnalysisResult> {
 	const findings: Finding[] = [];
 	const confidenceReasons: string[] = [];
@@ -25,9 +27,16 @@ export async function analyze(
 	const addr = address.toLowerCase();
 	const etherscanKey = config?.etherscanKeys?.[chain];
 	const rpcUrl = config?.rpcUrls?.[chain];
+	const report = progress;
 
 	// 1. Check if it's actually a contract
+	report?.({ provider: "RPC", status: "start", message: "checking contract" });
 	const isContractAddress = await proxy.isContract(addr, chain, rpcUrl);
+	report?.({
+		provider: "RPC",
+		status: "success",
+		message: isContractAddress ? "contract detected" : "not a contract",
+	});
 	if (!isContractAddress) {
 		return {
 			contract: {
@@ -53,7 +62,15 @@ export async function analyze(
 	let contractName: string | undefined;
 	let source: string | undefined;
 
+	report?.({ provider: "Sourcify", status: "start" });
 	const sourcifyResult = await sourcify.checkVerification(addr, chain);
+	report?.({
+		provider: "Sourcify",
+		status: "success",
+		message: sourcifyResult.verified
+			? `verified${sourcifyResult.name ? `: ${sourcifyResult.name}` : ""}`
+			: "unverified",
+	});
 	if (sourcifyResult.verified) {
 		verified = true;
 		contractName = sourcifyResult.name;
@@ -65,7 +82,13 @@ export async function analyze(
 	let tx_count: number | undefined;
 
 	if (etherscanKey) {
+		report?.({ provider: "Etherscan", status: "start" });
 		const etherscanData = await etherscan.getContractData(addr, chain, etherscanKey);
+		report?.({
+			provider: "Etherscan",
+			status: "success",
+			message: etherscanData ? "metadata fetched" : "no data",
+		});
 		if (etherscanData) {
 			// Use Etherscan verification if Sourcify didn't have it
 			if (!verified && etherscanData.verified) {
@@ -81,14 +104,43 @@ export async function analyze(
 	}
 
 	// 4. Proxy detection
+	report?.({ provider: "Proxy", status: "start" });
 	const proxyInfo = await proxy.detectProxy(addr, chain, rpcUrl);
+	report?.({
+		provider: "Proxy",
+		status: "success",
+		message: proxyInfo.is_proxy ? `proxy: ${proxyInfo.proxy_type ?? "unknown"}` : "no proxy",
+	});
 
 	// 5. Protocol matching
+	report?.({ provider: "DeFiLlama", status: "start" });
 	const protocolMatch = await defillama.matchProtocol(addr, chain);
+	report?.({
+		provider: "DeFiLlama",
+		status: "success",
+		message: protocolMatch ? protocolMatch.name : "no match",
+	});
 
 	// 6. Token security (if it's a token)
+	report?.({ provider: "GoPlus", status: "start" });
 	const tokenSecurityResult = await goplus.getTokenSecurity(addr, chain);
 	const tokenSecurity = tokenSecurityResult.data;
+	const tokenFindingCount = countTokenFindings(tokenSecurity);
+	if (tokenSecurityResult.error) {
+		report?.({
+			provider: "GoPlus",
+			status: "error",
+			message: tokenSecurityResult.error,
+		});
+	} else {
+		report?.({
+			provider: "GoPlus",
+			status: "success",
+			message: tokenSecurity
+				? `${tokenFindingCount} ${tokenFindingCount === 1 ? "finding" : "findings"}`
+				: "no data",
+		});
+	}
 
 	// Build findings
 	if (!verified) {
@@ -217,6 +269,19 @@ export async function analyze(
 		},
 		recommendation,
 	};
+}
+
+function countTokenFindings(tokenSecurity: TokenSecurity | null): number {
+	if (!tokenSecurity) return 0;
+	let count = 0;
+	if (tokenSecurity.is_honeypot) count += 1;
+	if (tokenSecurity.is_mintable) count += 1;
+	if (tokenSecurity.selfdestruct) count += 1;
+	if (tokenSecurity.owner_can_change_balance) count += 1;
+	if (tokenSecurity.is_blacklisted) count += 1;
+	const maxTax = Math.max(tokenSecurity.buy_tax || 0, tokenSecurity.sell_tax || 0);
+	if (maxTax > 0.1) count += 1;
+	return count;
 }
 
 function determineRecommendation(findings: Finding[]): Recommendation {
