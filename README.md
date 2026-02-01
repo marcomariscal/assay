@@ -1,91 +1,91 @@
-# rugscan 🔍
+# rugscan
 
-Pre-transaction security analysis for EVM agents.
-
-> "Know what you're signing before you sign it."
+Pre-transaction security analysis for EVM contracts. Know what you're signing before you sign it.
 
 ## Features
 
-- **Contract Analysis** — verification status, age, activity, risk factors
-- **Risk Scoring** — 0-100 score with clear reasoning
-- **Multi-chain** — Ethereum, Base, Arbitrum, Optimism, Polygon
-- **No API keys required** — uses public explorer APIs (rate limited)
-- **Agent-native** — built for AI agents, CLI, and MCP
+- **Contract verification check** — Sourcify (free) + Etherscan
+- **Proxy detection** — EIP-1967, UUPS, Beacon, minimal proxies
+- **Token security** — Honeypot, hidden mint, blacklist, tax (via GoPlus)
+- **Protocol matching** — DeFiLlama integration
+- **Confidence levels** — Honest about what we can't see
 
-## Installation
+## Install
 
 ```bash
-npm install rugscan
-# or
 bun add rugscan
 ```
 
 ## CLI Usage
 
 ```bash
-# Analyze a contract
-rugscan analyze 0x1234... --chain ethereum
+# Basic analysis
+rugscan analyze 0x1234...
 
-# Quick verification check
-rugscan check 0x1234... --chain base
-
-# JSON output
-rugscan analyze 0x1234... --json
+# Specify chain
+rugscan analyze 0x1234... --chain base
 ```
+
+### Environment Variables
+
+For full analysis, provide block explorer API keys:
+
+```bash
+export ETHERSCAN_API_KEY=your_key
+export BASESCAN_API_KEY=your_key
+export ARBISCAN_API_KEY=your_key
+```
+
+Without keys, analysis uses Sourcify only (limited coverage).
 
 ## Library Usage
 
 ```typescript
-import { analyzeContract, formatAnalysis } from 'rugscan';
+import { analyze } from "rugscan";
 
-const analysis = await analyzeContract('0x1234...', { chain: 'ethereum' });
+const result = await analyze("0x1234...", "ethereum", {
+  etherscanKeys: {
+    ethereum: process.env.ETHERSCAN_API_KEY,
+  },
+});
 
-console.log(formatAnalysis(analysis));
-// ⚠️ Contract Risk: MEDIUM (35)
-//    Address: 0x1234...
-//    Chain: ethereum
-//
-//    Risk Factors:
-//    ✓ Source code verified
-//    ⚠️ New contract (15 days old)
-//    ⚠️ Low activity (47 txs)
-//    ⚠️ Proxy/upgradeable contract
+console.log(result.recommendation); // "ok" | "caution" | "warning" | "danger"
+console.log(result.findings); // Array of findings with level + code + message
+console.log(result.confidence); // { level: "high" | "medium" | "low", reasons: [...] }
 ```
 
-## Risk Scoring
+## Supported Chains
 
-| Factor | Points | Notes |
-|--------|--------|-------|
-| Unverified source | +40 | Critical red flag |
-| Age < 7 days | +30 | Very new |
-| Age 7-30 days | +15 | New |
-| Age 30-90 days | +5 | Establishing |
-| Tx count < 10 | +20 | Very low activity |
-| Tx count 10-100 | +10 | Low activity |
-| Proxy/upgradeable | +15 | Can be changed |
-| Has selfdestruct | +20 | Can be destroyed |
-| Known protocol | -20 | Trusted |
+- Ethereum
+- Base
+- Arbitrum
+- Optimism
+- Polygon
 
-**Risk Levels:**
-- **Low (0-20)** — Well-known, verified, established
-- **Medium (21-40)** — Some yellow flags
-- **High (41-60)** — Multiple concerns
-- **Critical (61+)** — Strong risk indicators
+## Finding Codes
 
-## Environment Variables
+| Code | Level | Meaning |
+|------|-------|---------|
+| `UNVERIFIED` | danger | No source code available |
+| `HONEYPOT` | danger | Can buy, can't sell |
+| `HIDDEN_MINT` | danger | Owner can mint unlimited |
+| `SELFDESTRUCT` | danger | Contract can self-destruct |
+| `OWNER_DRAIN` | danger | Owner can modify balances |
+| `BLACKLIST` | warning | Has blacklist functionality |
+| `HIGH_TAX` | warning | Transfer tax > 10% |
+| `NEW_CONTRACT` | warning | < 7 days old |
+| `UPGRADEABLE` | warning | Proxy, code can change |
+| `LOW_ACTIVITY` | info | < 100 transactions |
+| `VERIFIED` | safe | Source verified |
+| `KNOWN_PROTOCOL` | safe | Matched on DeFiLlama |
 
-Optional — increases rate limits:
-```bash
-ETHERSCAN_API_KEY=your_key_here
-```
+## Design Philosophy
 
-## Roadmap
-
-- [ ] Transaction simulation (Tenderly integration)
-- [ ] Approval/allowance analysis
-- [ ] Known scam database
-- [ ] MCP server
-- [ ] Clawdbot skill
+1. **Any contract, not just tokens** — Works on all contracts
+2. **Unverified = danger** — If we can't see the code, that's a red flag
+3. **Sourcify first** — Free, no API key required
+4. **Honest confidence** — We tell you when data is missing
+5. **Findings, not scores** — Facts + severity, no magic numbers
 
 ## License
 

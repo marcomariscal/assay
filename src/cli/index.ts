@@ -1,86 +1,147 @@
-#!/usr/bin/env node
-/**
- * rugscan CLI
- */
+#!/usr/bin/env bun
+import { analyze } from "../analyzer";
+import type { Chain, Config, Finding } from "../types";
 
-import { program } from "commander";
-import { analyzeContract, formatAnalysis } from "../core/analyzer.js";
-import type { Chain } from "../core/types.js";
+const VALID_CHAINS: Chain[] = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
 
-const VALID_CHAINS: Chain[] = [
-	"ethereum",
-	"base",
-	"arbitrum",
-	"optimism",
-	"polygon",
-];
+function printUsage() {
+	console.log(`
+rugscan - Pre-transaction security analysis for EVM contracts
 
-program
-	.name("rugscan")
-	.description("Pre-transaction security analysis for EVM")
-	.version("0.1.0");
+Usage:
+  rugscan analyze <address> [--chain <chain>]
 
-program
-	.command("analyze")
-	.description("Analyze a contract for risk factors")
-	.argument("<address>", "Contract address to analyze")
-	.option("-c, --chain <chain>", "Chain to analyze on", "ethereum")
-	.option("--json", "Output as JSON")
-	.action(async (address: string, options: { chain: string; json?: boolean }) => {
-		const chain = options.chain.toLowerCase() as Chain;
+Options:
+  --chain, -c    Chain to analyze on (default: ethereum)
+                 Valid: ethereum, base, arbitrum, optimism, polygon
 
-		if (!VALID_CHAINS.includes(chain)) {
-			console.error(
-				`Invalid chain: ${chain}. Valid options: ${VALID_CHAINS.join(", ")}`,
-			);
+Environment:
+  ETHERSCAN_API_KEY       Etherscan API key (enables full analysis)
+  BASESCAN_API_KEY        BaseScan API key
+  ARBISCAN_API_KEY        Arbiscan API key
+  OPTIMISM_API_KEY        Optimistic Etherscan API key
+  POLYGONSCAN_API_KEY     PolygonScan API key
+
+Examples:
+  rugscan analyze 0x1234...
+  rugscan analyze 0x1234... --chain base
+`);
+}
+
+function getConfig(): Config {
+	return {
+		etherscanKeys: {
+			ethereum: process.env.ETHERSCAN_API_KEY,
+			base: process.env.BASESCAN_API_KEY,
+			arbitrum: process.env.ARBISCAN_API_KEY,
+			optimism: process.env.OPTIMISM_API_KEY,
+			polygon: process.env.POLYGONSCAN_API_KEY,
+		},
+	};
+}
+
+function formatFinding(finding: Finding): string {
+	const icons: Record<string, string> = {
+		danger: "🚨",
+		warning: "⚠️",
+		info: "ℹ️",
+		safe: "✅",
+	};
+	return `${icons[finding.level]} [${finding.code}] ${finding.message}`;
+}
+
+async function main() {
+	const args = process.argv.slice(2);
+
+	if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
+		printUsage();
+		process.exit(0);
+	}
+
+	if (args[0] !== "analyze") {
+		console.error(`Unknown command: ${args[0]}`);
+		printUsage();
+		process.exit(1);
+	}
+
+	// Parse arguments
+	const address = args[1];
+	if (!address || !address.startsWith("0x")) {
+		console.error("Error: Please provide a valid contract address");
+		process.exit(1);
+	}
+
+	let chain: Chain = "ethereum";
+	const chainIndex = args.findIndex((a) => a === "--chain" || a === "-c");
+	if (chainIndex !== -1 && args[chainIndex + 1]) {
+		const requestedChain = args[chainIndex + 1] as Chain;
+		if (!VALID_CHAINS.includes(requestedChain)) {
+			console.error(`Error: Invalid chain "${requestedChain}"`);
+			console.error(`Valid chains: ${VALID_CHAINS.join(", ")}`);
 			process.exit(1);
 		}
+		chain = requestedChain;
+	}
 
-		if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-			console.error("Invalid address format");
-			process.exit(1);
+	const config = getConfig();
+
+	console.log(`\nAnalyzing ${address} on ${chain}...\n`);
+
+	try {
+		const result = await analyze(address, chain, config);
+
+		// Print contract info
+		console.log("Contract:");
+		console.log(`  Address: ${result.contract.address}`);
+		console.log(`  Chain: ${result.contract.chain}`);
+		if (result.contract.name) {
+			console.log(`  Name: ${result.contract.name}`);
+		}
+		console.log(`  Verified: ${result.contract.verified ? "Yes" : "No"}`);
+		if (result.contract.age_days !== undefined) {
+			console.log(`  Age: ${result.contract.age_days} days`);
+		}
+		if (result.contract.tx_count !== undefined) {
+			console.log(`  Transactions: ${result.contract.tx_count}`);
+		}
+		if (result.contract.is_proxy) {
+			console.log(`  Proxy: Yes (${result.contract.implementation})`);
+		}
+		if (result.protocol) {
+			console.log(`  Protocol: ${result.protocol}`);
 		}
 
-		console.log(`Analyzing ${address} on ${chain}...\n`);
+		// Print findings
+		console.log("\nFindings:");
+		for (const finding of result.findings) {
+			console.log(`  ${formatFinding(finding)}`);
+		}
 
-		try {
-			const analysis = await analyzeContract(address, { chain });
-
-			if (options.json) {
-				console.log(JSON.stringify(analysis, null, 2));
-			} else {
-				console.log(formatAnalysis(analysis));
+		// Print confidence
+		console.log(`\nConfidence: ${result.confidence.level.toUpperCase()}`);
+		if (result.confidence.reasons.length > 0) {
+			for (const reason of result.confidence.reasons) {
+				console.log(`  - ${reason}`);
 			}
-
-			// Exit with non-zero for high/critical risk
-			if (analysis.riskLevel === "high" || analysis.riskLevel === "critical") {
-				process.exit(1);
-			}
-		} catch (error) {
-			console.error("Analysis failed:", error);
-			process.exit(1);
 		}
-	});
 
-program
-	.command("check")
-	.description("Quick check if a contract is verified")
-	.argument("<address>", "Contract address")
-	.option("-c, --chain <chain>", "Chain", "ethereum")
-	.action(async (address: string, options: { chain: string }) => {
-		const chain = options.chain.toLowerCase() as Chain;
+		// Print recommendation
+		const recIcons: Record<string, string> = {
+			danger: "🚨 DANGER",
+			warning: "⚠️ WARNING",
+			caution: "⚡ CAUTION",
+			ok: "✅ OK",
+		};
+		console.log(`\nRecommendation: ${recIcons[result.recommendation]}\n`);
 
-		try {
-			const analysis = await analyzeContract(address, { chain });
-			const icon = analysis.verified ? "✅" : "❌";
-			console.log(
-				`${icon} ${address} is ${analysis.verified ? "verified" : "NOT verified"} on ${chain}`,
-			);
-			process.exit(analysis.verified ? 0 : 1);
-		} catch (error) {
-			console.error("Check failed:", error);
-			process.exit(1);
+		// Exit code based on recommendation
+		if (result.recommendation === "danger") {
+			process.exit(2);
 		}
-	});
+	} catch (error) {
+		console.error("Analysis failed:", error);
+		process.exit(1);
+	}
+}
 
-program.parse();
+main();
