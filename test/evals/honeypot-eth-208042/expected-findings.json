@@ -1,0 +1,13 @@
+{
+  "context": {
+    "name": "Ethereum honeypot token",
+    "address": "0x208042a2012812f189e4e696e05f08eadb883404",
+    "chain": "ethereum"
+  },
+  "expectedFindings": [
+    {
+      "code": "HONEYPOT",
+      "level": "danger"
+    }
+  ]
+}

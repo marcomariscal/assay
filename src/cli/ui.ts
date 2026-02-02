@@ -1,5 +1,16 @@
 import pc from "picocolors";
-import type { AnalysisResult, Finding, Recommendation } from "../types";
+import { MAX_UINT256 } from "../constants";
+import type {
+	AIConcern,
+	AIAnalysis,
+	AnalysisResult,
+	ApprovalAnalysisResult,
+	ApprovalContext,
+	ApprovalTx,
+	Chain,
+	Finding,
+	Recommendation,
+} from "../types";
 
 const COLORS = {
 	ok: pc.green,
@@ -161,6 +172,38 @@ function renderBox(title: string, sections: string[][]): string {
 	return lines.join("\n");
 }
 
+function riskLabel(score: number): string {
+	if (score >= 85) return "CRITICAL";
+	if (score >= 70) return "HIGH";
+	if (score >= 50) return "MEDIUM";
+	if (score >= 30) return "LOW";
+	return "SAFE";
+}
+
+function severityColor(severity: AIConcern["severity"]) {
+	if (severity === "medium") return COLORS.warning;
+	return COLORS.danger;
+}
+
+function renderAISection(ai: AIAnalysis): string[] {
+	const lines: string[] = [];
+	lines.push(` AI: ${ai.provider} / ${ai.model}`);
+	lines.push(` Risk score: ${ai.risk_score} (${riskLabel(ai.risk_score)})`);
+	lines.push(` Summary: ${ai.summary}`);
+	if (ai.concerns.length > 0) {
+		lines.push(" Concerns:");
+		for (const concern of ai.concerns) {
+			const color = severityColor(concern.severity);
+			lines.push(
+				`  ${color(concern.severity.toUpperCase())} ${concern.title} (${concern.category}) - ${concern.explanation}`,
+			);
+		}
+	} else {
+		lines.push(COLORS.dim(" Concerns: None"));
+	}
+	return lines;
+}
+
 export function renderResultBox(result: AnalysisResult): string {
 	const { label, icon, color } = recommendationStyle(result.recommendation);
 	const title = ` ${color(`${icon} ${label}`)}`;
@@ -210,7 +253,70 @@ export function renderResultBox(result: AnalysisResult): string {
 		}
 	}
 
-	return renderBox(title, [contractLines, findingsLines]);
+	const sections = [contractLines, findingsLines];
+	if (result.ai) {
+		sections.push(renderAISection(result.ai));
+	}
+
+	return renderBox(title, sections);
+}
+
+function formatApprovalAmount(amount: bigint): string {
+	return amount === MAX_UINT256 ? "max" : amount.toString();
+}
+
+export function renderApprovalBox(
+	tx: ApprovalTx,
+	chain: Chain,
+	context: ApprovalContext | undefined,
+	result: ApprovalAnalysisResult,
+): string {
+	const { label, icon, color } = recommendationStyle(result.recommendation);
+	const title = ` ${color(`${icon} ${label}`)}`;
+
+	const approvalLines: string[] = [];
+	approvalLines.push(` Token: ${tx.token}`);
+	approvalLines.push(` Spender: ${tx.spender}`);
+	approvalLines.push(` Amount: ${formatApprovalAmount(tx.amount)}`);
+	approvalLines.push(` Chain: ${chain}`);
+
+	if (context?.expectedSpender) {
+		approvalLines.push(COLORS.dim(` Expected: ${context.expectedSpender}`));
+	}
+	if (context?.calledContract) {
+		approvalLines.push(COLORS.dim(` Called: ${context.calledContract}`));
+	}
+
+	const findingsLines: string[] = [];
+	findingsLines.push(" Findings:");
+	if (result.findings.length === 0) {
+		findingsLines.push(COLORS.dim("  None"));
+	} else {
+		for (const finding of result.findings) {
+			findingsLines.push(` ${formatFindingLine(finding)}`);
+		}
+	}
+
+	const spenderLines: string[] = [];
+	const spenderLabel =
+		result.spenderAnalysis.contract.name ?? result.spenderAnalysis.contract.address;
+	spenderLines.push(` Spender contract: ${spenderLabel}`);
+	const verifiedMark = result.spenderAnalysis.contract.verified
+		? COLORS.ok("✓")
+		: COLORS.danger("✗");
+	spenderLines.push(` Verified: ${verifiedMark}`);
+	if (result.spenderAnalysis.protocol) {
+		spenderLines.push(` Protocol: ${result.spenderAnalysis.protocol}`);
+	}
+	if (result.spenderAnalysis.contract.age_days !== undefined) {
+		spenderLines.push(COLORS.dim(` Age: ${result.spenderAnalysis.contract.age_days} days`));
+	}
+	const spenderRecommendation = recommendationStyle(result.spenderAnalysis.recommendation);
+	spenderLines.push(
+		` Recommendation: ${spenderRecommendation.color(spenderRecommendation.label)}`,
+	);
+
+	return renderBox(title, [approvalLines, findingsLines, spenderLines]);
 }
 
 export function renderHeading(text: string): string {

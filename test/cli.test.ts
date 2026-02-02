@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-async function runCli(args: string[]) {
+async function runCli(args: string[], envOverrides: Record<string, string | undefined> = {}) {
+	const env = { ...process.env, ...envOverrides };
 	const proc = Bun.spawn(["bun", "run", "src/cli/index.ts", ...args], {
 		stdout: "pipe",
 		stderr: "pipe",
+		env,
 	});
 	const stdout = await new Response(proc.stdout).text();
 	const stderr = await new Response(proc.stderr).text();
@@ -56,5 +58,19 @@ describe("cli", () => {
 		const result = await runCli(["analyze", "not-an-address"]);
 		expect(result.exitCode).toBe(1);
 		expect(result.stderr).toContain("valid contract address");
+	});
+
+	test("AI analysis requires API key", async () => {
+		const result = await runCli(
+			["analyze", "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", "--ai"],
+			{
+				ANTHROPIC_API_KEY: "",
+				OPENAI_API_KEY: "",
+				OPENROUTER_API_KEY: "",
+				RUGSCAN_CONFIG: "",
+			},
+		);
+		expect(result.exitCode).toBe(1);
+		expect(result.stderr).toContain("No AI API keys found");
 	});
 });

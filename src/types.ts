@@ -9,15 +9,25 @@ export type FindingCode =
 	| "HIDDEN_MINT"
 	| "SELFDESTRUCT"
 	| "OWNER_DRAIN"
+	| "APPROVAL_TARGET_MISMATCH"
+	| "APPROVAL_TO_EOA"
+	| "POSSIBLE_TYPOSQUAT"
+	| "APPROVAL_TO_DANGEROUS_CONTRACT"
+	| "KNOWN_PHISHING"
 	// Warning
 	| "UNKNOWN_SECURITY"
 	| "BLACKLIST"
 	| "HIGH_TAX"
 	| "NEW_CONTRACT"
 	| "UPGRADEABLE"
+	| "UNLIMITED_APPROVAL"
+	| "APPROVAL_TO_UNVERIFIED"
+	| "APPROVAL_TO_NEW_CONTRACT"
 	// Info
 	| "LOW_ACTIVITY"
 	| "PROXY"
+	| "AI_PARSE_FAILED"
+	| "AI_WARNING"
 	// Safe
 	| "VERIFIED"
 	| "KNOWN_PROTOCOL";
@@ -25,6 +35,34 @@ export type FindingCode =
 export type Recommendation = "danger" | "warning" | "caution" | "ok";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
+
+export type AIRiskLevel = "safe" | "low" | "medium" | "high" | "critical";
+export type AIProvider = "anthropic" | "openai" | "openrouter";
+export type AIConcernCategory =
+	| "reentrancy"
+	| "access_control"
+	| "upgradeability"
+	| "token_security"
+	| "oracle"
+	| "logic_error"
+	| "centralization"
+	| "prompt_injection_attempt";
+
+export interface AIConcern {
+	title: string;
+	severity: "medium" | "high";
+	category: AIConcernCategory;
+	explanation: string;
+	confidence: number;
+}
+
+export interface AIAnalysis {
+	risk_score: number;
+	summary: string;
+	concerns: AIConcern[];
+	model: string;
+	provider: AIProvider;
+}
 
 export interface Finding {
 	level: FindingLevel;
@@ -55,11 +93,38 @@ export interface AnalysisResult {
 	findings: Finding[];
 	confidence: Confidence;
 	recommendation: Recommendation;
+	ai?: AIAnalysis;
+}
+
+export interface ApprovalTx {
+	token: string;
+	spender: string;
+	amount: bigint;
+}
+
+export interface ApprovalContext {
+	expectedSpender?: string;
+	calledContract?: string;
+}
+
+export interface ApprovalAnalysisResult {
+	recommendation: Recommendation;
+	findings: Finding[];
+	spenderAnalysis: AnalysisResult;
+	flags: {
+		isUnlimited: boolean;
+		targetMismatch: boolean;
+		spenderUnverified: boolean;
+		spenderNew: boolean;
+		possibleTyposquat: boolean;
+	};
 }
 
 export interface Config {
 	etherscanKeys?: Partial<Record<Chain, string>>;
 	rpcUrls?: Partial<Record<Chain, string>>;
+	ai?: AIConfig;
+	aiOptions?: AIOptions;
 }
 
 // Provider interfaces
@@ -105,4 +170,16 @@ export interface ProxyInfo {
 export interface ProviderResult<T> {
 	data: T | null;
 	error?: string;
+}
+
+export interface AIConfig {
+	anthropic_api_key?: string;
+	openai_api_key?: string;
+	openrouter_api_key?: string;
+	default_model?: string;
+}
+
+export interface AIOptions {
+	enabled?: boolean;
+	model?: string;
 }

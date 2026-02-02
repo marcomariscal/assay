@@ -1,6 +1,7 @@
 import * as defillama from "./providers/defillama";
 import * as etherscan from "./providers/etherscan";
 import * as goplus from "./providers/goplus";
+import * as ai from "./providers/ai";
 import * as proxy from "./providers/proxy";
 import * as sourcify from "./providers/sourcify";
 import type {
@@ -61,6 +62,9 @@ export async function analyze(
 	let verified = false;
 	let contractName: string | undefined;
 	let source: string | undefined;
+	let phishingLabels: string[] = [];
+	let phishingNametag: string | undefined;
+	let isPhishing = false;
 
 	report?.({ provider: "Sourcify", status: "start" });
 	const sourcifyResult = await sourcify.checkVerification(addr, chain);
@@ -75,6 +79,24 @@ export async function analyze(
 		verified = true;
 		contractName = sourcifyResult.name;
 		source = sourcifyResult.source;
+	}
+
+	// 2b. Check address labels for phishing/scam
+	report?.({ provider: "Etherscan Labels", status: "start" });
+	const addressLabels = await etherscan.getAddressLabels(addr, chain, etherscanKey);
+	if (addressLabels) {
+		phishingLabels = addressLabels.labels;
+		phishingNametag = addressLabels.nametag;
+		isPhishing =
+			(phishingNametag ? containsPhishingKeyword(phishingNametag) : false) ||
+			phishingLabels.some(containsPhishingKeyword);
+		report?.({
+			provider: "Etherscan Labels",
+			status: "success",
+			message: isPhishing ? "phishing label" : "labels checked",
+		});
+	} else {
+		report?.({ provider: "Etherscan Labels", status: "success", message: "no labels" });
 	}
 
 	// 3. Get Etherscan data (if key available)
@@ -165,7 +187,22 @@ export async function analyze(
 		});
 	}
 
+	if (isPhishing) {
+		const detail =
+			phishingNametag ?? (phishingLabels.length > 0 ? phishingLabels.join(", ") : undefined);
+		findings.push({
+			level: "danger",
+			code: "KNOWN_PHISHING",
+			message: `Address labeled as phishing/scam${detail ? `: ${detail}` : ""}`,
+		});
+	}
+
 	if (proxyInfo.is_proxy) {
+		findings.push({
+			level: "info",
+			code: "PROXY",
+			message: `Proxy detected (${proxyInfo.proxy_type ?? "unknown"})`,
+		});
 		findings.push({
 			level: "warning",
 			code: "UPGRADEABLE",
@@ -257,7 +294,57 @@ export async function analyze(
 		tx_count,
 		is_proxy: proxyInfo.is_proxy,
 		implementation: proxyInfo.implementation,
+		beacon: proxyInfo.beacon,
 	};
+
+	let aiAnalysis = undefined;
+	if (config?.aiOptions?.enabled) {
+		report?.({ provider: "AI", status: "start" });
+		try {
+			const aiResult = await ai.analyzeRisk(
+				{
+					contract,
+					findings,
+					proxy: proxyInfo,
+					tokenSecurity,
+					protocol: protocolMatch?.name,
+					source,
+				},
+				config.ai,
+				config.aiOptions,
+			);
+			if (aiResult.warning) {
+				findings.push({
+					level: "info",
+					code: "AI_PARSE_FAILED",
+					message: aiResult.warning,
+				});
+			}
+			if (aiResult.warnings) {
+				for (const warning of aiResult.warnings) {
+					findings.push({
+						level: "info",
+						code: "AI_WARNING",
+						message: `AI output warning: ${warning}`,
+					});
+				}
+			}
+			if (aiResult.analysis) {
+				aiAnalysis = aiResult.analysis;
+				report?.({
+					provider: "AI",
+					status: "success",
+					message: `${aiResult.analysis.provider}:${aiResult.analysis.model}`,
+				});
+			} else {
+				report?.({ provider: "AI", status: "success", message: "no output" });
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "AI analysis failed";
+			report?.({ provider: "AI", status: "error", message });
+			throw error;
+		}
+	}
 
 	return {
 		contract,
@@ -268,6 +355,7 @@ export async function analyze(
 			reasons: confidenceReasons,
 		},
 		recommendation,
+		ai: aiAnalysis,
 	};
 }
 
@@ -296,4 +384,13 @@ function determineRecommendation(findings: Finding[]): Recommendation {
 		return hasSafe ? "caution" : "warning";
 	}
 	return "ok";
+}
+
+function containsPhishingKeyword(value: string): boolean {
+	const normalized = value.toLowerCase();
+	return (
+		normalized.includes("phishing") ||
+		normalized.includes("scam") ||
+		normalized.includes("phish")
+	);
 }

@@ -60,3 +60,151 @@ export async function getContractData(
 		return null;
 	}
 }
+
+export interface AddressLabels {
+	nametag?: string;
+	labels: string[];
+}
+
+export async function getAddressLabels(
+	address: string,
+	chain: Chain,
+	apiKey?: string,
+): Promise<AddressLabels | null> {
+	const chainConfig = getChainConfig(chain);
+	const baseUrl = chainConfig.etherscanApiUrl;
+	const rootUrl = baseUrl.endsWith("/api") ? baseUrl.slice(0, -4) : baseUrl;
+	const chainId = chainConfig.chainId;
+	const apiKeyParam = apiKey ? `&apikey=${apiKey}` : "";
+	const url = `${rootUrl}/api/v2/nametag?address=${address}&chainid=${chainId}${apiKeyParam}`;
+
+	try {
+		const response = await fetch(url);
+		if (!response.ok) {
+			return await getPhishHackLabel(address, chainId);
+		}
+
+		const data = await response.json();
+		const parsed = parseAddressLabels(data);
+		if (parsed) return parsed;
+		return await getPhishHackLabel(address, chainId);
+	} catch {
+		return await getPhishHackLabel(address, chainId);
+	}
+}
+
+function parseAddressLabels(value: unknown): AddressLabels | null {
+	if (!isRecord(value)) return null;
+
+	if ("status" in value) {
+		const status = value.status;
+		if (status !== "1" && status !== 1) {
+			return null;
+		}
+	}
+
+	if (isRecord(value) && ("nametag" in value || "labels" in value)) {
+		const parsed = parseNametagRecord(value);
+		if (parsed) return parsed;
+	}
+
+	if (Array.isArray(value.result) && value.result.length > 0) {
+		const entry = value.result[0];
+		if (isRecord(entry)) {
+			return parseNametagRecord(entry);
+		}
+	}
+
+	return null;
+}
+
+function parseNametagRecord(record: Record<string, unknown>): AddressLabels | null {
+	const nametag = isNonEmptyString(record.nametag) ? record.nametag : undefined;
+	const labels = normalizeLabels(record.labels);
+	if (!nametag && labels.length === 0) {
+		return null;
+	}
+	return { nametag, labels };
+}
+
+function normalizeLabels(value: unknown): string[] {
+	if (Array.isArray(value)) {
+		return value.filter(isNonEmptyString);
+	}
+	if (isNonEmptyString(value)) {
+		return [value];
+	}
+	return [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
+const PHISH_HACK_LABEL = "Phish / Hack";
+const phishHackCache = new Map<number, Promise<Set<string> | null> | Set<string>>();
+
+async function getPhishHackLabel(
+	address: string,
+	chainId: number,
+): Promise<AddressLabels | null> {
+	const set = await getPhishHackAddresses(chainId);
+	if (!set) return null;
+	if (!set.has(address.toLowerCase())) return null;
+	return { labels: [PHISH_HACK_LABEL] };
+}
+
+async function getPhishHackAddresses(chainId: number): Promise<Set<string> | null> {
+	const cached = phishHackCache.get(chainId);
+	if (cached instanceof Set) return cached;
+	if (cached) return cached;
+
+	const fetchPromise = fetchPhishHackAddresses(chainId);
+	phishHackCache.set(chainId, fetchPromise);
+	const resolved = await fetchPromise;
+	if (!resolved) {
+		phishHackCache.delete(chainId);
+		return null;
+	}
+	phishHackCache.set(chainId, resolved);
+	return resolved;
+}
+
+async function fetchPhishHackAddresses(chainId: number): Promise<Set<string> | null> {
+	try {
+		const exportUrl = `https://api-metadata.etherscan.io/v2/api?chainid=${chainId}&module=nametag&action=exportaddresstags&label=phish-hack&format=csv`;
+		const exportResponse = await fetch(exportUrl);
+		if (!exportResponse.ok) return null;
+		const exportData = await exportResponse.json();
+		const csvLink = parseExportLink(exportData);
+		if (!csvLink) return null;
+
+		const csvResponse = await fetch(csvLink);
+		if (!csvResponse.ok) return null;
+		const csv = await csvResponse.text();
+		const addresses = new Set<string>();
+		for (const line of csv.split(/\r?\n/)) {
+			const address = parseCsvAddress(line);
+			if (address) addresses.add(address);
+		}
+		return addresses;
+	} catch {
+		return null;
+	}
+}
+
+function parseExportLink(value: unknown): string | null {
+	if (!isRecord(value)) return null;
+	const link = value.link;
+	return isNonEmptyString(link) ? link : null;
+}
+
+function parseCsvAddress(line: string): string | null {
+	const match = line.match(/^"?(0x[a-fA-F0-9]{40})"?/);
+	if (!match) return null;
+	return match[1].toLowerCase();
+}
