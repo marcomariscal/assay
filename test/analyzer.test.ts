@@ -91,6 +91,21 @@ describe("analyzer", () => {
     });
   });
 
+  describe("phishing labels", () => {
+    test(
+      "known phishing contract → KNOWN_PHISHING finding",
+      async () => {
+        const result = await analyze(
+          "0x000011387Eb24F199e875B1325E4805EfD3b0000",
+          "ethereum"
+        );
+
+        expect(result.findings.some(f => f.code === "KNOWN_PHISHING")).toBe(true);
+      },
+      120000
+    );
+  });
+
   describe("protocol recognition", () => {
     test("Uniswap V3 router → KNOWN_PROTOCOL finding", async () => {
       const result = await analyze(
