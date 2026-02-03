@@ -10,6 +10,7 @@ import type {
 	ScanResult,
 } from "./schema";
 import { simulateBalance } from "./simulations/balance";
+import { applySimulationVerdict, buildSimulationNotRun } from "./simulations/verdict";
 import type {
 	AnalysisResult,
 	BalanceSimulationResult,
@@ -83,7 +84,8 @@ export async function scanWithAnalysis(
 	const analysis = await analyze(targetAddress, chain, options?.config, options?.progress);
 	const mergedAnalysis = await mergeCalldataAnalysis(normalizedInput, analysis);
 	const simulation = await runBalanceSimulation(normalizedInput, chain, options?.config);
-	const finalAnalysis = simulation ? { ...mergedAnalysis, simulation } : mergedAnalysis;
+	const withSimulation = simulation ? { ...mergedAnalysis, simulation } : mergedAnalysis;
+	const finalAnalysis = applySimulationVerdict(normalizedInput, withSimulation);
 	const response = buildAnalyzeResponse(normalizedInput, finalAnalysis, options?.requestId);
 	return { analysis: finalAnalysis, response };
 }
@@ -200,7 +202,9 @@ async function runBalanceSimulation(
 	config?: Config,
 ): Promise<BalanceSimulationResult | undefined> {
 	if (!input.calldata) return undefined;
-	if (!shouldRunSimulation(config)) return undefined;
+	if (!shouldRunSimulation(config)) {
+		return buildSimulationNotRun(input.calldata);
+	}
 	return await simulateBalance(input.calldata, chain, config);
 }
 
@@ -235,6 +239,8 @@ function mapSimulation(simulation: BalanceSimulationResult): ScanBalanceSimulati
 			spender: approval.spender,
 			amount: approval.amount?.toString(),
 			tokenId: approval.tokenId?.toString(),
+			scope: approval.scope,
+			approved: approval.approved,
 		})),
 		confidence: simulation.confidence,
 		notes: simulation.notes,
