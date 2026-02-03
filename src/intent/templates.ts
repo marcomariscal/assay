@@ -422,10 +422,28 @@ const permit2PermitTransferFrom: IntentTemplate = {
 		const recipient = extractRecipient(transferDetails);
 		const permitTokenAmount = extractTokenAmount(permit);
 		const transferTokenAmount = extractTokenAmount(transferDetails);
-		const token = transferTokenAmount.token ?? permitTokenAmount.token;
+		const token = transferTokenAmount.token ?? permitTokenAmount.amount;
 		const amount = transferTokenAmount.amount ?? permitTokenAmount.amount;
 		if (!recipient || !token || !amount) return null;
 		return `Permit2: Transfer ${amount} ${token} to ${recipient}`;
+	},
+};
+
+const wethDeposit: IntentTemplate = {
+	id: "weth-deposit",
+	match: (call) => call.functionName === "deposit" && call.selector === "0xd0e30db0",
+	render: (_call, context) => `Wrap ETH → ${context.contractName ?? "WETH"}`,
+};
+
+const wethWithdraw: IntentTemplate = {
+	id: "weth-withdraw",
+	match: (call) => call.functionName === "withdraw" && call.selector === "0x2e1a7d4d",
+	render: (call, context) => {
+		const amount = readArg(call, "wad", 0);
+		const formatted = formatValue(amount);
+		return formatted
+			? `Unwrap ${formatted} ${context.contractName ?? "WETH"} → ETH`
+			: `Unwrap ${context.contractName ?? "WETH"} → ETH`;
 	},
 };
 
@@ -451,4 +469,6 @@ export const INTENT_TEMPLATES: IntentTemplate[] = [
 	uniswapV3ExactOutput,
 	permit2Permit,
 	permit2PermitTransferFrom,
+	wethDeposit,
+	wethWithdraw,
 ];
