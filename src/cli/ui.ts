@@ -451,10 +451,14 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 	return lines;
 }
 
-function renderRiskSection(result: AnalysisResult): string[] {
-	const label = result.ai
+function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string[] {
+	let label = result.ai
 		? riskLabel(result.ai.risk_score)
 		: recommendationRiskLabel(result.recommendation);
+	const simulationFailed = hasCalldata && (!result.simulation || !result.simulation.success);
+	if (simulationFailed && label === "SAFE") {
+		label = "LOW";
+	}
 	const note = result.ai ? "" : " (AI disabled)";
 	const colored = riskColor(label)(label);
 	return [` 📊 RISK: ${colored}${note}`];
@@ -484,9 +488,9 @@ export function renderResultBox(
 		? [
 				renderBalanceSection(result, hasCalldata),
 				renderApprovalsSection(result, hasCalldata),
-				renderRiskSection(result),
+				renderRiskSection(result, hasCalldata),
 			]
-		: [renderRiskSection(result)];
+		: [renderRiskSection(result, hasCalldata)];
 
 	return renderUnifiedBox(headerLines, sections);
 }
