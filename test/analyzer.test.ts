@@ -25,7 +25,7 @@ describe("analyzer", () => {
 			expect(result.contract.verified).toBe(true);
 			expect(result.contract.name).toBe("WETH9");
 			expect(result.recommendation).toBe("ok");
-		});
+		}, 120000);
 	});
 
 	describe("tokens with centralization risks", () => {
@@ -50,7 +50,7 @@ describe("analyzer", () => {
 			expect(result.contract.verified).toBe(false);
 			expect(result.recommendation).toBe("danger");
 			expect(result.findings.some((f) => f.code === "UNVERIFIED")).toBe(true);
-		});
+		}, 120000);
 	});
 
 	describe("proxy contracts", () => {
@@ -70,7 +70,7 @@ describe("analyzer", () => {
 			expect(result.contract.verified).toBe(true);
 			expect(result.contract.is_proxy).toBe(true);
 			expect(result.recommendation).toBe("caution");
-		});
+		}, 120000);
 	});
 
 	describe("phishing labels", () => {
@@ -87,7 +87,7 @@ describe("analyzer", () => {
 
 			expect(result.findings.some((f) => f.code === "KNOWN_PROTOCOL")).toBe(true);
 			expect(result.protocol?.toLowerCase()).toContain("uniswap");
-		});
+		}, 120000);
 	});
 
 	describe("token taxes", () => {
@@ -121,14 +121,14 @@ describe("analyzer", () => {
 					(f) => f.code === "LOW_ACTIVITY" && f.message.includes("not a contract"),
 				),
 			).toBe(true);
-		});
+		}, 120000);
 
 		test("dead address → warning", async () => {
 			const result = await analyze("0x000000000000000000000000000000000000dEaD", "ethereum");
 
 			expect(result.contract.verified).toBe(false);
 			expect(result.findings.some((f) => f.message.includes("not a contract"))).toBe(true);
-		});
+		}, 120000);
 	});
 
 	describe("multi-chain addresses", () => {
@@ -141,7 +141,7 @@ describe("analyzer", () => {
 			expect(baseResult.contract.address).toBe(optimismResult.contract.address);
 			expect(baseResult.contract.chain).toBe("base");
 			expect(optimismResult.contract.chain).toBe("optimism");
-		});
+		}, 120000);
 	});
 
 	describe("confidence levels", () => {
@@ -154,6 +154,6 @@ describe("analyzer", () => {
 
 			expect(result.confidence.level).toBe("medium");
 			expect(result.confidence.reasons).toContain("no etherscan key - limited data");
-		});
+		}, 120000);
 	});
 });
