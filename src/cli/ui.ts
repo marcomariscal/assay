@@ -322,30 +322,46 @@ function renderBalanceSection(result: AnalysisResult, hasCalldata: boolean): str
 	return lines;
 }
 
-function buildApprovalWarnings(result: AnalysisResult): string[] {
-	const warnings = new Map<string, string>();
+function buildApprovalItems(result: AnalysisResult): Array<{ text: string; isUnlimited: boolean }> {
+	const items = new Map<string, { text: string; isUnlimited: boolean }>();
 	const tokenFallback = result.contract.name ?? shortenAddress(result.contract.address);
 
+	// From calldata findings
 	for (const finding of result.findings) {
 		if (finding.code !== "UNLIMITED_APPROVAL") continue;
 		const details = finding.details;
 		const spender = details && typeof details.spender === "string" ? details.spender : undefined;
 		const spenderLabel = spender ? shortenAddress(spender) : "unknown";
-		const warning = `${tokenFallback}: UNLIMITED to ${spenderLabel}`;
-		warnings.set(`${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}`, warning);
+		const key = `${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}`;
+		items.set(key, { text: `${tokenFallback}: UNLIMITED to ${spenderLabel}`, isUnlimited: true });
 	}
 
+	// From simulation
 	if (result.simulation) {
 		for (const approval of result.simulation.approvals) {
-			if (approval.amount !== MAX_UINT256) continue;
 			const tokenLabel = shortenAddress(approval.token);
 			const spenderLabel = shortenAddress(approval.spender);
-			const warning = `${tokenLabel}: UNLIMITED to ${spenderLabel}`;
-			warnings.set(`${tokenLabel.toLowerCase()}|${spenderLabel.toLowerCase()}`, warning);
+			const key = `${tokenLabel.toLowerCase()}|${spenderLabel.toLowerCase()}`;
+			const isUnlimited = approval.amount === MAX_UINT256;
+			const amountLabel =
+				isUnlimited || approval.amount === undefined
+					? "UNLIMITED"
+					: formatApprovalAmount(approval.amount, 18);
+			items.set(key, { text: `${tokenLabel}: ${amountLabel} to ${spenderLabel}`, isUnlimited });
 		}
 	}
 
-	return Array.from(warnings.values());
+	return Array.from(items.values());
+}
+
+function formatApprovalAmount(amount: bigint, decimals?: number): string {
+	const dec = decimals ?? 18;
+	const divisor = 10n ** BigInt(dec);
+	const whole = amount / divisor;
+	if (whole > 1_000_000_000n) return `${(Number(whole) / 1e9).toFixed(1)}B`;
+	if (whole > 1_000_000n) return `${(Number(whole) / 1e6).toFixed(1)}M`;
+	if (whole > 1_000n) return `${(Number(whole) / 1e3).toFixed(1)}K`;
+	return whole.toString();
 }
 
 function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): string[] {
@@ -356,13 +372,17 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 		return lines;
 	}
 
-	const warnings = buildApprovalWarnings(result);
-	if (warnings.length === 0) {
+	const approvals = buildApprovalItems(result);
+	if (approvals.length === 0) {
 		lines.push(COLORS.dim(" - None detected"));
 		return lines;
 	}
-	for (const warning of warnings) {
-		lines.push(` ${COLORS.warning(`⚠️ ${warning}`)}`);
+	for (const approval of approvals) {
+		if (approval.isUnlimited) {
+			lines.push(` ${COLORS.warning(`⚠️ ${approval.text}`)}`);
+		} else {
+			lines.push(` ${COLORS.dim(`• ${approval.text}`)}`);
+		}
 	}
 	return lines;
 }
@@ -525,10 +545,6 @@ function shortenAddress(address: string): string {
 	return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-function formatApprovalAmount(amount: bigint): string {
-	return amount === MAX_UINT256 ? "max" : amount.toString();
-}
-
 export function renderApprovalBox(
 	tx: ApprovalTx,
 	chain: Chain,
@@ -541,7 +557,7 @@ export function renderApprovalBox(
 	const approvalLines: string[] = [];
 	approvalLines.push(` Token: ${tx.token}`);
 	approvalLines.push(` Spender: ${tx.spender}`);
-	approvalLines.push(` Amount: ${formatApprovalAmount(tx.amount)}`);
+	approvalLines.push(` Amount: ${formatApprovalAmount(tx.amount, 18)}`);
 	approvalLines.push(` Chain: ${chain}`);
 
 	if (context?.expectedSpender) {

@@ -183,7 +183,7 @@ async function simulateWithAnvil(
 		assetChanges.push(...buildNftChanges(parsedLogs.transfers, from));
 
 		const approvals = parsedLogs.approvals
-			.filter((approval) => approval.owner === from)
+			.filter((approval) => approval.owner.toLowerCase() === from.toLowerCase())
 			.map<ApprovalChange>((approval) => ({
 				standard: approval.standard,
 				token: approval.token,
