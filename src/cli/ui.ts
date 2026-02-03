@@ -18,8 +18,9 @@ const COLORS = {
 	ok: pc.green,
 	warning: pc.yellow,
 	danger: pc.red,
-	// Use ANSI "dim" (not gray) — much more readable on many terminals/themes.
-	dim: pc.dim,
+	// For now: force high-contrast output. Using dim/gray is unreadable on many terminal themes.
+	// If we later want a subtle in-between, add a --low-contrast flag.
+	dim: pc.white,
 };
 
 type ProviderStatus = "start" | "success" | "error";
@@ -123,7 +124,7 @@ class Spinner {
 export function createProgressRenderer(enabled: boolean) {
 	const spinner = new Spinner(enabled);
 	return (event: ProviderEvent) => {
-		const provider = pc.cyan(event.provider);
+		const provider = event.provider;
 		const message = typeof event.message === "string" ? cleanLabel(event.message) : undefined;
 		switch (event.status) {
 			case "start":
