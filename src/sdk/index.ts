@@ -1,5 +1,5 @@
-import { analyzeResponseSchema, scanInputSchema } from "../schema";
 import type { AnalyzeResponse, CalldataInput, ScanInput } from "../schema";
+import { analyzeResponseSchema, scanInputSchema } from "../schema";
 
 export interface ScanClientOptions {
 	apiKey?: string;
@@ -20,7 +20,10 @@ export class ScanError extends Error {
 const DEFAULT_BASE_URL = "http://localhost:3000";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
-export async function scan(input: ScanInput, options?: ScanClientOptions): Promise<AnalyzeResponse> {
+export async function scan(
+	input: ScanInput,
+	options?: ScanClientOptions,
+): Promise<AnalyzeResponse> {
 	const validation = scanInputSchema.safeParse(input);
 	if (!validation.success) {
 		throw new ScanError("Invalid scan input");

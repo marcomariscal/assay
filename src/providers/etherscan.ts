@@ -148,10 +148,7 @@ function isNonEmptyString(value: unknown): value is string {
 const PHISH_HACK_LABEL = "Phish / Hack";
 const phishHackCache = new Map<number, Promise<Set<string> | null> | Set<string>>();
 
-async function getPhishHackLabel(
-	address: string,
-	chainId: number,
-): Promise<AddressLabels | null> {
+async function getPhishHackLabel(address: string, chainId: number): Promise<AddressLabels | null> {
 	const set = await getPhishHackAddresses(chainId);
 	if (!set) return null;
 	if (!set.has(address.toLowerCase())) return null;

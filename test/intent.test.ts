@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { buildIntent } from "../src/intent";
 import type { DecodedCall } from "../src/analyzers/calldata/decoder";
+import { buildIntent } from "../src/intent";
 
 describe("intent templates", () => {
 	test("builds ERC20 approve intent", () => {
@@ -17,9 +17,7 @@ describe("intent templates", () => {
 		};
 
 		const intent = buildIntent(call, { contractName: "USDC" });
-		expect(intent).toBe(
-			"Approve 0x0000000000000000000000000000000000000001 to spend 1000 USDC",
-		);
+		expect(intent).toBe("Approve 0x0000000000000000000000000000000000000001 to spend 1000 USDC");
 	});
 
 	test("builds Aave borrow intent", () => {
@@ -38,8 +36,6 @@ describe("intent templates", () => {
 		};
 
 		const intent = buildIntent(call, {});
-		expect(intent).toBe(
-			"Borrow 2500 0x0000000000000000000000000000000000000010 from Aave",
-		);
+		expect(intent).toBe("Borrow 2500 0x0000000000000000000000000000000000000010 from Aave");
 	});
 });

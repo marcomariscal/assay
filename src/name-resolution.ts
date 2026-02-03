@@ -49,7 +49,10 @@ function normalizeName(value?: string): string | undefined {
 	return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function combineProtocolAndImplementation(protocolName: string, implementationName: string): string {
+function combineProtocolAndImplementation(
+	protocolName: string,
+	implementationName: string,
+): string {
 	if (includesIgnoreCase(implementationName, protocolName)) {
 		return implementationName;
 	}

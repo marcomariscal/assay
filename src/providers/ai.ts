@@ -1,7 +1,7 @@
-import { generateObject, NoObjectGeneratedError } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openai } from "@ai-sdk/openai";
 import { openrouter } from "@openrouter/ai-sdk-provider";
+import { generateObject, NoObjectGeneratedError } from "ai";
 import { z } from "zod";
 import type {
 	AIAnalysis,
@@ -108,48 +108,48 @@ type AIAnalysisOutput = z.infer<typeof AI_ANALYSIS_SCHEMA>;
 const MAX_SOURCE_CHARS = 50_000;
 
 const HOMOGLYPH_MAP: Record<string, string> = {
-	"А": "A",
-	"В": "B",
-	"Е": "E",
-	"К": "K",
-	"М": "M",
-	"Н": "H",
-	"О": "O",
-	"Р": "P",
-	"С": "C",
-	"Т": "T",
-	"Х": "X",
-	"а": "a",
-	"е": "e",
-	"о": "o",
-	"р": "p",
-	"с": "c",
-	"х": "x",
-	"у": "y",
-	"і": "i",
-	"Α": "A",
-	"Β": "B",
-	"Ε": "E",
-	"Η": "H",
-	"Ι": "I",
-	"Κ": "K",
-	"Μ": "M",
-	"Ν": "N",
-	"Ο": "O",
-	"Ρ": "P",
-	"Τ": "T",
-	"Υ": "Y",
-	"Χ": "X",
-	"α": "a",
-	"β": "b",
-	"ε": "e",
-	"ι": "i",
-	"κ": "k",
-	"ο": "o",
-	"ρ": "p",
-	"τ": "t",
-	"υ": "y",
-	"χ": "x",
+	А: "A",
+	В: "B",
+	Е: "E",
+	К: "K",
+	М: "M",
+	Н: "H",
+	О: "O",
+	Р: "P",
+	С: "C",
+	Т: "T",
+	Х: "X",
+	а: "a",
+	е: "e",
+	о: "o",
+	р: "p",
+	с: "c",
+	х: "x",
+	у: "y",
+	і: "i",
+	Α: "A",
+	Β: "B",
+	Ε: "E",
+	Η: "H",
+	Ι: "I",
+	Κ: "K",
+	Μ: "M",
+	Ν: "N",
+	Ο: "O",
+	Ρ: "P",
+	Τ: "T",
+	Υ: "Y",
+	Χ: "X",
+	α: "a",
+	β: "b",
+	ε: "e",
+	ι: "i",
+	κ: "k",
+	ο: "o",
+	ρ: "p",
+	τ: "t",
+	υ: "y",
+	χ: "x",
 };
 
 export interface AIRiskInput {
@@ -206,7 +206,10 @@ export async function analyzeRisk(
 	};
 }
 
-export function resolveProvider(config: AIConfig | undefined, modelOverride?: string): {
+export function resolveProvider(
+	config: AIConfig | undefined,
+	modelOverride?: string,
+): {
 	provider: AIProvider;
 	apiKey: string;
 } {
@@ -235,7 +238,11 @@ export function resolveProvider(config: AIConfig | undefined, modelOverride?: st
 	);
 }
 
-export function resolveModel(provider: AIProvider, modelOverride?: string, defaultModel?: string): string {
+export function resolveModel(
+	provider: AIProvider,
+	modelOverride?: string,
+	defaultModel?: string,
+): string {
 	const forced = parseProviderOverride(modelOverride);
 	if (forced) {
 		return forced.model;
@@ -249,7 +256,9 @@ export function resolveModel(provider: AIProvider, modelOverride?: string, defau
 	return PROVIDER_DEFAULT_MODELS[provider];
 }
 
-function parseProviderOverride(modelOverride?: string): { provider: AIProvider; model: string } | null {
+function parseProviderOverride(
+	modelOverride?: string,
+): { provider: AIProvider; model: string } | null {
 	if (!isNonEmptyString(modelOverride)) return null;
 	const [providerRaw, ...rest] = modelOverride.split(":");
 	if (rest.length === 0) return null;
@@ -363,7 +372,9 @@ export function buildUserPrompt(input: AIRiskInput): string {
 	return `Analyze the contract risk using ONLY the data below.\n\n${sections.join("\n\n")}`;
 }
 
-export function parseAIResponse(raw: string): { risk_score: number; summary: string; concerns: AIConcern[] } | null {
+export function parseAIResponse(
+	raw: string,
+): { risk_score: number; summary: string; concerns: AIConcern[] } | null {
 	let parsed: unknown;
 	try {
 		parsed = JSON.parse(raw);

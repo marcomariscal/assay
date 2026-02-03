@@ -9,7 +9,10 @@ export interface TyposquatMatch {
 	distance: number;
 }
 
-export function isPossibleTyposquat(candidate: string, knownSpenders: KnownSpender[]): TyposquatMatch | null {
+export function isPossibleTyposquat(
+	candidate: string,
+	knownSpenders: KnownSpender[],
+): TyposquatMatch | null {
 	const normalizedCandidate = normalizeAddress(candidate);
 	const candidateBody = stripHexPrefix(normalizedCandidate);
 	let best: TyposquatMatch | null = null;

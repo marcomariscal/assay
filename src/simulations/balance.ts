@@ -467,6 +467,7 @@ async function readTokenSymbol(
 		});
 		if (typeof result === "string" && isHexString(result)) {
 			const decoded = hexToString(result, { size: 32 });
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: null byte stripping
 			const trimmed = decoded.replace(/\u0000/g, "").trim();
 			return trimmed.length > 0 ? trimmed : undefined;
 		}

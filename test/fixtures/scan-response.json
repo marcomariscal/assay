@@ -1,35 +1,35 @@
 {
-  "requestId": "00000000-0000-4000-8000-000000000000",
-  "scan": {
-    "input": {
-      "address": "0x1111111111111111111111111111111111111111"
-    },
-    "recommendation": "warning",
-    "confidence": 0.62,
-    "findings": [
-      {
-        "code": "UNVERIFIED",
-        "severity": "danger",
-        "message": "Source code not verified"
-      },
-      {
-        "code": "LOW_ACTIVITY",
-        "severity": "caution",
-        "message": "Only 12 transactions",
-        "details": {
-          "txCount": 12
-        },
-        "refs": ["https://example.com"]
-      }
-    ],
-    "contract": {
-      "address": "0x1111111111111111111111111111111111111111",
-      "chain": "ethereum",
-      "isContract": true,
-      "name": "ExampleToken",
-      "isProxy": false,
-      "verifiedSource": false,
-      "tags": ["Example"]
-    }
-  }
+	"requestId": "00000000-0000-4000-8000-000000000000",
+	"scan": {
+		"input": {
+			"address": "0x1111111111111111111111111111111111111111"
+		},
+		"recommendation": "warning",
+		"confidence": 0.62,
+		"findings": [
+			{
+				"code": "UNVERIFIED",
+				"severity": "danger",
+				"message": "Source code not verified"
+			},
+			{
+				"code": "LOW_ACTIVITY",
+				"severity": "caution",
+				"message": "Only 12 transactions",
+				"details": {
+					"txCount": 12
+				},
+				"refs": ["https://example.com"]
+			}
+		],
+		"contract": {
+			"address": "0x1111111111111111111111111111111111111111",
+			"chain": "ethereum",
+			"isContract": true,
+			"name": "ExampleToken",
+			"isProxy": false,
+			"verifiedSource": false,
+			"tags": ["Example"]
+		}
+	}
 }

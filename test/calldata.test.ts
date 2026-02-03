@@ -1,10 +1,10 @@
-import { beforeAll, beforeEach, afterAll, describe, expect, test } from "bun:test";
-import { encodeFunctionData } from "viem";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import type { Abi } from "viem";
-import { MAX_UINT256 } from "../src/constants";
+import { encodeFunctionData } from "viem";
 import { analyzeCalldata } from "../src/analyzers/calldata";
 import { clearSelectorCache, resolveSelector } from "../src/analyzers/calldata/selector-resolver";
 import { isRecord } from "../src/analyzers/calldata/utils";
+import { MAX_UINT256 } from "../src/constants";
 
 const ERC20_ABI: Abi = [
 	{
@@ -98,12 +98,8 @@ describe("calldata analysis", () => {
 			data,
 		});
 
-		expect(result.findings.some((finding) => finding.code === "CALLDATA_DECODED")).toBe(
-			true,
-		);
-		expect(result.findings.some((finding) => finding.code === "UNLIMITED_APPROVAL")).toBe(
-			true,
-		);
+		expect(result.findings.some((finding) => finding.code === "CALLDATA_DECODED")).toBe(true);
+		expect(result.findings.some((finding) => finding.code === "UNLIMITED_APPROVAL")).toBe(true);
 	});
 
 	test("decodes ERC-20 transfer with semantic output", async () => {
@@ -122,9 +118,7 @@ describe("calldata analysis", () => {
 		if (decoded?.details && isRecord(decoded.details)) {
 			expect(decoded.details.standard).toBe("erc20");
 			if (isRecord(decoded.details.args)) {
-				expect(decoded.details.args.to).toBe(
-					"0x0000000000000000000000000000000000000003",
-				);
+				expect(decoded.details.args.to).toBe("0x0000000000000000000000000000000000000003");
 				expect(decoded.details.args.amount).toBe("123");
 			}
 		}
@@ -149,12 +143,8 @@ describe("calldata analysis", () => {
 			data,
 		});
 
-		expect(result.findings.some((finding) => finding.code === "CALLDATA_DECODED")).toBe(
-			true,
-		);
-		expect(result.findings.some((finding) => finding.code === "UNLIMITED_APPROVAL")).toBe(
-			true,
-		);
+		expect(result.findings.some((finding) => finding.code === "CALLDATA_DECODED")).toBe(true);
+		expect(result.findings.some((finding) => finding.code === "UNLIMITED_APPROVAL")).toBe(true);
 	});
 
 	test("falls back to 4byte signature lookup", async () => {
@@ -239,9 +229,7 @@ describe("calldata analysis", () => {
 		if (decoded?.details && isRecord(decoded.details)) {
 			expect(decoded.details.source).toBe("contract-abi");
 			if (isRecord(decoded.details.args)) {
-				expect(decoded.details.args.target).toBe(
-					"0x0000000000000000000000000000000000000008",
-				);
+				expect(decoded.details.args.target).toBe("0x0000000000000000000000000000000000000008");
 				expect(decoded.details.args.count).toBe("5");
 			}
 		}

@@ -1,16 +1,16 @@
 export { analyze } from "./analyzer";
 export { analyzeApproval } from "./approval";
-export { loadConfig } from "./config";
 export { CHAINS, getChainConfig } from "./chains";
-export { scan, scanAddress, scanCalldata, ScanError } from "./sdk";
+export { loadConfig } from "./config";
 export type {
 	AnalyzeResponse,
 	CalldataInput,
+	ContractInfo as ScanContractInfo,
 	ScanFinding,
 	ScanInput,
 	ScanResult,
-	ContractInfo as ScanContractInfo,
 } from "./schema";
+export { ScanError, scan, scanAddress, scanCalldata } from "./sdk";
 export type {
 	AIAnalysis,
 	AIConcern,
@@ -20,6 +20,7 @@ export type {
 	AIProvider,
 	AnalysisResult,
 	ApprovalAnalysisResult,
+	ApprovalChange,
 	ApprovalContext,
 	ApprovalTx,
 	AssetChange,
@@ -28,7 +29,6 @@ export type {
 	Confidence,
 	Config,
 	ContractInfo,
-	ApprovalChange,
 	Finding,
 	FindingCode,
 	FindingLevel,

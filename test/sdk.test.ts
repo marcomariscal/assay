@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { scan, scanAddress, ScanError } from "../src/sdk";
+import { ScanError, scan, scanAddress } from "../src/sdk";
 
 const fixturePath = "test/fixtures/scan-response.json";
 
@@ -43,11 +43,10 @@ describe("sdk", () => {
 			});
 		};
 
-		const response = await scanAddress(
-			"0x1111111111111111111111111111111111111111",
-			"1",
-			{ apiKey: "test", baseUrl: "http://localhost:3000" },
-		);
+		const response = await scanAddress("0x1111111111111111111111111111111111111111", "1", {
+			apiKey: "test",
+			baseUrl: "http://localhost:3000",
+		});
 		expect(response.requestId).toBe(fixture.requestId);
 	});
 

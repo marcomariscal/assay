@@ -1,6 +1,14 @@
 import { analyze, determineRecommendation } from "./analyzer";
 import { analyzeCalldata } from "./analyzers/calldata";
 import { buildIntent } from "./intent";
+import type {
+	AnalyzeResponse,
+	ContractInfo,
+	BalanceSimulationResult as ScanBalanceSimulationResult,
+	ScanFinding,
+	ScanInput,
+	ScanResult,
+} from "./schema";
 import { simulateBalance } from "./simulations/balance";
 import type {
 	AnalysisResult,
@@ -11,14 +19,6 @@ import type {
 	Finding,
 	FindingLevel,
 } from "./types";
-import type {
-	AnalyzeResponse,
-	BalanceSimulationResult as ScanBalanceSimulationResult,
-	ContractInfo,
-	ScanFinding,
-	ScanInput,
-	ScanResult,
-} from "./schema";
 
 export type ScanProgress = (event: {
 	provider: string;
@@ -177,8 +177,9 @@ function mapFindingLevel(level: FindingLevel): ScanFinding["severity"] {
 }
 
 function buildContractInfo(analysis: AnalysisResult): ContractInfo {
-	const hasNotContractFinding = analysis.findings.some((finding) =>
-		finding.code === "LOW_ACTIVITY" && finding.message.toLowerCase().includes("not a contract"),
+	const hasNotContractFinding = analysis.findings.some(
+		(finding) =>
+			finding.code === "LOW_ACTIVITY" && finding.message.toLowerCase().includes("not a contract"),
 	);
 	const tags = analysis.protocol ? [analysis.protocol] : undefined;
 	return {
@@ -210,9 +211,7 @@ function shouldRunSimulation(config?: Config): boolean {
 	return simulation.enabled;
 }
 
-function mapSimulation(
-	simulation: BalanceSimulationResult,
-): ScanBalanceSimulationResult {
+function mapSimulation(simulation: BalanceSimulationResult): ScanBalanceSimulationResult {
 	return {
 		success: simulation.success,
 		revertReason: simulation.revertReason,

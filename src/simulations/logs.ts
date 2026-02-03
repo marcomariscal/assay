@@ -1,15 +1,15 @@
+import type { Log } from "viem";
 import {
-	decodeEventLog,
-	getEventSelector,
-	isAddress,
 	type Abi,
 	type AbiEvent,
 	type Address,
+	decodeEventLog,
+	getEventSelector,
 	type Hex,
+	isAddress,
 } from "viem";
-import type { Log } from "viem";
-import type { ConfidenceLevel } from "../types";
 import { toBigInt } from "../analyzers/calldata/utils";
+import type { ConfidenceLevel } from "../types";
 
 export interface ParsedTransfer {
 	standard: "erc20" | "erc721" | "erc1155";
@@ -246,12 +246,7 @@ export async function parseReceiptLogs(
 
 	const erc721Cache = new Map<Address, boolean | null>();
 	for (const transfer of rawTransfers) {
-		const supports = await resolveErc721Support(
-			client,
-			erc721Cache,
-			transfer.token,
-			notes,
-		);
+		const supports = await resolveErc721Support(client, erc721Cache, transfer.token, notes);
 		if (supports === null) {
 			confidence = "low";
 		}

@@ -1,12 +1,15 @@
 import { loadConfig } from "../config";
-import { analyzeResponseSchema, parseScanRequest, scanRequestSchema } from "../schema";
 import { resolveScanChain, scan } from "../scan";
 import type { AnalyzeResponse, ScanInput } from "../schema";
+import { analyzeResponseSchema, parseScanRequest, scanRequestSchema } from "../schema";
 import type { Config } from "../types";
 
 export interface ServerOptions {
 	apiKey?: string;
-	scanFn?: (input: ScanInput, options?: { chain?: string; config?: Config }) => Promise<AnalyzeResponse>;
+	scanFn?: (
+		input: ScanInput,
+		options?: { chain?: string; config?: Config },
+	) => Promise<AnalyzeResponse>;
 	config?: Config;
 }
 

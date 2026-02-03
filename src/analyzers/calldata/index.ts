@@ -1,7 +1,7 @@
 import { MAX_UINT256 } from "../../constants";
+import * as sourcify from "../../providers/sourcify";
 import type { CalldataInput } from "../../schema";
 import type { Chain, Finding } from "../../types";
-import * as sourcify from "../../providers/sourcify";
 import type { DecodedCall } from "./decoder";
 import { decodeAbiCalldata, decodeKnownCalldata, decodeSignatureCandidates } from "./decoder";
 import { resolveSelector } from "./selector-resolver";
@@ -188,11 +188,7 @@ function formatDecodedParams(decoded: DecodedCall): string {
 			decoded.argNames && decoded.argNames.length > 0
 				? decoded.argNames
 				: Object.keys(decoded.args);
-		return names
-			.map((name, index) =>
-				formatArgEntry(name, decoded.args[name], index),
-			)
-			.join(", ");
+		return names.map((name, index) => formatArgEntry(name, decoded.args[name], index)).join(", ");
 	}
 	return "";
 }
@@ -212,9 +208,7 @@ function formatArgValue(value: unknown): string {
 		return `[${value.map((entry) => formatArgValue(entry)).join(", ")}]`;
 	}
 	if (isRecord(value)) {
-		const entries = Object.entries(value).map(
-			([key, entry]) => `${key}: ${formatArgValue(entry)}`,
-		);
+		const entries = Object.entries(value).map(([key, entry]) => `${key}: ${formatArgValue(entry)}`);
 		return `{${entries.join(", ")}}`;
 	}
 	return String(value);

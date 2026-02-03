@@ -52,11 +52,7 @@ export async function getAnvilClient(chain: Chain, config?: Config): Promise<Anv
 
 function resolveRpcUrl(chain: Chain, config?: Config): string {
 	const chainConfig = getChainConfig(chain);
-	return (
-		config?.simulation?.rpcUrl ??
-		config?.rpcUrls?.[chain] ??
-		chainConfig.rpcUrl
-	);
+	return config?.simulation?.rpcUrl ?? config?.rpcUrls?.[chain] ?? chainConfig.rpcUrl;
 }
 
 async function spawnAnvil(options: {

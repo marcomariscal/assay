@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { writeFile, rm } from "node:fs/promises";
-import path from "node:path";
+import { rm, writeFile } from "node:fs/promises";
 import os from "node:os";
+import path from "node:path";
 import { loadConfig } from "../src/config";
 
 function setEnv(key: string, value: string | undefined) {

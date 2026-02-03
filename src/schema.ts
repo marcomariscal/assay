@@ -100,9 +100,12 @@ const calldataInputSchema = z
 		to: addressSchema,
 		from: addressSchema.optional(),
 		data: hexDataSchema,
-		value: z.string().refine((value) => isNumericString(value), {
-			message: "Invalid value",
-		}).optional(),
+		value: z
+			.string()
+			.refine((value) => isNumericString(value), {
+				message: "Invalid value",
+			})
+			.optional(),
 		chain: chainSchema.optional(),
 	})
 	.strict();

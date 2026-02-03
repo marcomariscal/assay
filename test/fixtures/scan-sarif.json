@@ -1,55 +1,55 @@
 {
-  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-  "version": "2.1.0",
-  "runs": [
-    {
-      "tool": {
-        "driver": {
-          "name": "rugscan",
-          "rules": [
-            {
-              "id": "UNVERIFIED",
-              "name": "UNVERIFIED",
-              "shortDescription": {
-                "text": "Source code not verified"
-              }
-            },
-            {
-              "id": "LOW_ACTIVITY",
-              "name": "LOW_ACTIVITY",
-              "shortDescription": {
-                "text": "Only 12 transactions"
-              }
-            }
-          ]
-        }
-      },
-      "results": [
-        {
-          "ruleId": "UNVERIFIED",
-          "level": "error",
-          "message": {
-            "text": "Source code not verified"
-          },
-          "properties": {
-            "severity": "danger"
-          }
-        },
-        {
-          "ruleId": "LOW_ACTIVITY",
-          "level": "note",
-          "message": {
-            "text": "Only 12 transactions"
-          },
-          "properties": {
-            "severity": "caution",
-            "details": {
-              "txCount": 12
-            },
-            "refs": ["https://example.com"]
-          }
-        }
-      ]
-    }
-  ]
+	"$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+	"version": "2.1.0",
+	"runs": [
+		{
+			"tool": {
+				"driver": {
+					"name": "rugscan",
+					"rules": [
+						{
+							"id": "UNVERIFIED",
+							"name": "UNVERIFIED",
+							"shortDescription": {
+								"text": "Source code not verified"
+							}
+						},
+						{
+							"id": "LOW_ACTIVITY",
+							"name": "LOW_ACTIVITY",
+							"shortDescription": {
+								"text": "Only 12 transactions"
+							}
+						}
+					]
+				}
+			},
+			"results": [
+				{
+					"ruleId": "UNVERIFIED",
+					"level": "error",
+					"message": {
+						"text": "Source code not verified"
+					},
+					"properties": {
+						"severity": "danger"
+					}
+				},
+				{
+					"ruleId": "LOW_ACTIVITY",
+					"level": "note",
+					"message": {
+						"text": "Only 12 transactions"
+					},
+					"properties": {
+						"severity": "caution",
+						"details": {
+							"txCount": 12
+						},
+						"refs": ["https://example.com"]
+					}
+				}
+			]
+		}
+	]
 }

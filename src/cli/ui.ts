@@ -1,8 +1,8 @@
 import pc from "picocolors";
 import { MAX_UINT256 } from "../constants";
 import type {
-	AIConcern,
 	AIAnalysis,
+	AIConcern,
 	AnalysisResult,
 	ApprovalAnalysisResult,
 	ApprovalContext,
@@ -39,6 +39,7 @@ const NATIVE_SYMBOLS: Record<Chain, string> = {
 };
 
 function stripAnsi(input: string): string {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence
 	return input.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
@@ -303,9 +304,7 @@ function renderBalanceSection(result: AnalysisResult, hasCalldata: boolean): str
 		return lines;
 	}
 	if (!result.simulation.success) {
-		const detail = result.simulation.revertReason
-			? ` (${result.simulation.revertReason})`
-			: "";
+		const detail = result.simulation.revertReason ? ` (${result.simulation.revertReason})` : "";
 		lines.push(COLORS.warning(` - Simulation failed${detail}`));
 		return lines;
 	}
@@ -318,9 +317,7 @@ function renderBalanceSection(result: AnalysisResult, hasCalldata: boolean): str
 
 	const ordered = orderBalanceChanges(changes);
 	const confidenceNote =
-		result.simulation.confidence !== "high"
-			? ` (${result.simulation.confidence} confidence)`
-			: "";
+		result.simulation.confidence !== "high" ? ` (${result.simulation.confidence} confidence)` : "";
 	lines.push(`${formatBalanceChangeLine(ordered)}${confidenceNote}`);
 	return lines;
 }
@@ -332,8 +329,7 @@ function buildApprovalWarnings(result: AnalysisResult): string[] {
 	for (const finding of result.findings) {
 		if (finding.code !== "UNLIMITED_APPROVAL") continue;
 		const details = finding.details;
-		const spender =
-			details && typeof details.spender === "string" ? details.spender : undefined;
+		const spender = details && typeof details.spender === "string" ? details.spender : undefined;
 		const spenderLabel = spender ? shortenAddress(spender) : "unknown";
 		const warning = `${tokenFallback}: UNLIMITED to ${spenderLabel}`;
 		warnings.set(`${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}`, warning);
@@ -372,7 +368,9 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 }
 
 function renderRiskSection(result: AnalysisResult): string[] {
-	const label = result.ai ? riskLabel(result.ai.risk_score) : recommendationRiskLabel(result.recommendation);
+	const label = result.ai
+		? riskLabel(result.ai.risk_score)
+		: recommendationRiskLabel(result.recommendation);
 	const note = result.ai ? "" : " (AI disabled)";
 	const colored = riskColor(label)(label);
 	return [` 📊 RISK: ${colored}${note}`];
@@ -388,29 +386,28 @@ export function renderResultBox(
 		result.protocolMatch?.slug && result.protocolMatch.slug !== protocol
 			? COLORS.dim(` (${result.protocolMatch.slug})`)
 			: "";
-	const action = hasCalldata ? result.intent ?? "Unknown action" : "N/A";
+	const action = hasCalldata ? (result.intent ?? "Unknown action") : "N/A";
 	const contractLabel = formatContractLabel(result.contract);
 
 	const headerLines = [
 		` Chain: ${result.contract.chain}`,
 		` Protocol: ${protocol}${protocolSuffix}`,
-		` Action: ${action}`,
+		...(hasCalldata ? [` Action: ${action}`] : []),
 		` Contract: ${contractLabel}`,
 	];
 
-	const sections = [
-		renderBalanceSection(result, hasCalldata),
-		renderApprovalsSection(result, hasCalldata),
-		renderRiskSection(result),
-	];
+	const sections = hasCalldata
+		? [
+				renderBalanceSection(result, hasCalldata),
+				renderApprovalsSection(result, hasCalldata),
+				renderRiskSection(result),
+			]
+		: [renderRiskSection(result)];
 
 	return renderUnifiedBox(headerLines, sections);
 }
 
-function buildBalanceChangeItems(
-	simulation: BalanceSimulationResult,
-	chain: Chain,
-): string[] {
+function buildBalanceChangeItems(simulation: BalanceSimulationResult, chain: Chain): string[] {
 	const items: string[] = [];
 	if (simulation.nativeDiff && simulation.nativeDiff !== 0n) {
 		items.push(formatSignedAmount(simulation.nativeDiff, 18, nativeSymbol(chain)));
@@ -462,7 +459,12 @@ function aggregateErc20(
 	const results: { address: string; amount: bigint; symbol?: string; decimals?: number }[] = [];
 	for (const [address, value] of net.entries()) {
 		if (value.amount !== 0n) {
-			results.push({ address, amount: value.amount, symbol: value.symbol, decimals: value.decimals });
+			results.push({
+				address,
+				amount: value.amount,
+				symbol: value.symbol,
+				decimals: value.decimals,
+			});
 		}
 	}
 	return results;
@@ -574,9 +576,7 @@ export function renderApprovalBox(
 		spenderLines.push(COLORS.dim(` Age: ${result.spenderAnalysis.contract.age_days} days`));
 	}
 	const spenderRecommendation = recommendationStyle(result.spenderAnalysis.recommendation);
-	spenderLines.push(
-		` Recommendation: ${spenderRecommendation.color(spenderRecommendation.label)}`,
-	);
+	spenderLines.push(` Recommendation: ${spenderRecommendation.color(spenderRecommendation.label)}`);
 
 	return renderBox(title, [approvalLines, findingsLines, spenderLines]);
 }

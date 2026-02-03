@@ -351,7 +351,6 @@ function coerceArgs(args: unknown, inputs: readonly AbiParameter[]): unknown[] |
 		const indexKey = String(i);
 		if (indexKey in args) {
 			values.push(args[indexKey]);
-			continue;
 		}
 	}
 	return values.length > 0 ? values : null;

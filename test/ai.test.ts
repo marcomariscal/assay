@@ -1,5 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import type { AIConfig } from "../src/types";
 import {
 	buildUserPrompt,
 	parseAIResponse,
@@ -8,6 +7,7 @@ import {
 	sanitizeSourceCode,
 	validateAnalysis,
 } from "../src/providers/ai";
+import type { AIConfig } from "../src/types";
 
 function extractSection(prompt: string, label: string): string {
 	const marker = `${label}:\n`;

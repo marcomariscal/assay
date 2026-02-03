@@ -1,13 +1,14 @@
 #!/usr/bin/env bun
 import { analyze } from "../analyzer";
 import { analyzeApproval } from "../approval";
-import { MAX_UINT256 } from "../constants";
 import { loadConfig } from "../config";
+import { MAX_UINT256 } from "../constants";
 import { resolveProvider } from "../providers/ai";
-import type { ApprovalContext, ApprovalTx, Chain, Recommendation } from "../types";
+import { resolveScanChain, scanWithAnalysis } from "../scan";
 import type { CalldataInput, ScanInput } from "../schema";
 import { scanInputSchema } from "../schema";
-import { scanWithAnalysis, resolveScanChain } from "../scan";
+import type { ApprovalContext, ApprovalTx, Chain, Recommendation } from "../types";
+import { formatSarif } from "./formatters/sarif";
 import {
 	createProgressRenderer,
 	renderApprovalBox,
@@ -15,7 +16,6 @@ import {
 	renderHeading,
 	renderResultBox,
 } from "./ui";
-import { formatSarif } from "./formatters/sarif";
 
 const VALID_CHAINS: Chain[] = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
 
@@ -59,7 +59,7 @@ Examples:
   rugscan analyze 0x1234... --ai
   rugscan analyze 0x1234... --ai --model openrouter:anthropic/claude-3-haiku
   rugscan scan 0x1234... --format json
-  rugscan scan --calldata '{\"to\":\"0x...\",\"data\":\"0x...\"}' --format sarif
+  rugscan scan --calldata '{"to":"0x...","data":"0x..."}' --format sarif
   rugscan approval --token 0x1234... --spender 0xabcd... --amount max
 `);
 }
@@ -253,7 +253,7 @@ async function runApproval(args: string[]) {
 
 	const amount = parseAmount(amountRaw);
 	if (amount === null) {
-		console.error(renderError("Error: --amount must be an integer or \"max\""));
+		console.error(renderError('Error: --amount must be an integer or "max"'));
 		process.exit(1);
 	}
 

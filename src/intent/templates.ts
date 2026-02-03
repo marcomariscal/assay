@@ -42,11 +42,11 @@ function readArg(call: DecodedCall, name: string, index: number): unknown {
 		return args[index];
 	}
 	if (isRecord(args)) {
-		if (Object.prototype.hasOwnProperty.call(args, name)) {
+		if (Object.hasOwn(args, name)) {
 			return args[name];
 		}
 		const indexKey = `${index}`;
-		if (Object.prototype.hasOwnProperty.call(args, indexKey)) {
+		if (Object.hasOwn(args, indexKey)) {
 			return args[indexKey];
 		}
 	}
@@ -58,11 +58,11 @@ function readStructField(value: unknown, name: string, index: number): unknown {
 		return value[index];
 	}
 	if (isRecord(value)) {
-		if (Object.prototype.hasOwnProperty.call(value, name)) {
+		if (Object.hasOwn(value, name)) {
 			return value[name];
 		}
 		const indexKey = `${index}`;
-		if (Object.prototype.hasOwnProperty.call(value, indexKey)) {
+		if (Object.hasOwn(value, indexKey)) {
 			return value[indexKey];
 		}
 	}
@@ -105,10 +105,10 @@ function extractTokenAmount(value: unknown): { token?: string; amount?: string }
 		if (token || amount) {
 			return { token: token ?? undefined, amount: amount ?? undefined };
 		}
-		if (Object.prototype.hasOwnProperty.call(value, "permitted")) {
+		if (Object.hasOwn(value, "permitted")) {
 			return extractTokenAmount(value.permitted);
 		}
-		if (Object.prototype.hasOwnProperty.call(value, "details")) {
+		if (Object.hasOwn(value, "details")) {
 			const details = value.details;
 			if (Array.isArray(details) && details.length > 0) {
 				return extractTokenAmount(details[0]);
@@ -185,8 +185,7 @@ const erc721SafeTransfer: IntentTemplate = {
 	render: (call, context) => {
 		const from = formatValue(readArg(call, "from", 0));
 		const to = formatValue(readArg(call, "to", 1));
-		const tokenId =
-			formatValue(readArg(call, "tokenId", 2)) ?? formatValue(readArg(call, "id", 2));
+		const tokenId = formatValue(readArg(call, "tokenId", 2)) ?? formatValue(readArg(call, "id", 2));
 		if (!from || !to || !tokenId) return null;
 		return `Transfer ${collectionLabel(context)} #${tokenId} from ${from} to ${to}`;
 	},

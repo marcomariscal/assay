@@ -1,11 +1,12 @@
+import { resolveContractName } from "./name-resolution";
+import * as ai from "./providers/ai";
 import * as defillama from "./providers/defillama";
 import * as etherscan from "./providers/etherscan";
 import * as goplus from "./providers/goplus";
-import * as ai from "./providers/ai";
 import * as proxy from "./providers/proxy";
 import * as sourcify from "./providers/sourcify";
-import { resolveContractName } from "./name-resolution";
 import type {
+	AIAnalysis,
 	AnalysisResult,
 	Chain,
 	Confidence,
@@ -21,7 +22,11 @@ export async function analyze(
 	address: string,
 	chain: Chain,
 	config?: Config,
-	progress?: (event: { provider: string; status: "start" | "success" | "error"; message?: string }) => void,
+	progress?: (event: {
+		provider: string;
+		status: "start" | "success" | "error";
+		message?: string;
+	}) => void,
 ): Promise<AnalysisResult> {
 	const findings: Finding[] = [];
 	const confidenceReasons: string[] = [];
@@ -166,10 +171,7 @@ export async function analyze(
 
 		if (!protocolNameForFriendly) {
 			report?.({ provider: "DeFiLlama (impl)", status: "start" });
-			const implementationProtocol = await defillama.matchProtocol(
-				proxyInfo.implementation,
-				chain,
-			);
+			const implementationProtocol = await defillama.matchProtocol(proxyInfo.implementation, chain);
 			report?.({
 				provider: "DeFiLlama (impl)",
 				status: "success",
@@ -344,7 +346,7 @@ export async function analyze(
 		beacon: proxyInfo.beacon,
 	};
 
-	let aiAnalysis = undefined;
+	let aiAnalysis: AIAnalysis | undefined;
 	if (config?.aiOptions?.enabled) {
 		report?.({ provider: "AI", status: "start" });
 		try {
@@ -450,8 +452,6 @@ export function determineRecommendation(findings: Finding[]): Recommendation {
 function containsPhishingKeyword(value: string): boolean {
 	const normalized = value.toLowerCase();
 	return (
-		normalized.includes("phishing") ||
-		normalized.includes("scam") ||
-		normalized.includes("phish")
+		normalized.includes("phishing") || normalized.includes("scam") || normalized.includes("phish")
 	);
 }

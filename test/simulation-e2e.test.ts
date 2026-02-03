@@ -18,6 +18,7 @@ async function runCli(args: string[], envOverrides: Record<string, string | unde
 }
 
 function stripAnsi(input: string): string {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence
 	return input.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
@@ -43,58 +44,47 @@ function baseEnv() {
 }
 
 describe("simulation e2e", () => {
-	test(
-		"scan --calldata runs anvil simulation and renders the result box",
-		async () => {
-			if (!existsSync(anvilPath)) {
-				throw new Error(`Missing anvil binary at ${anvilPath}`);
-			}
+	test("scan --calldata runs anvil simulation and renders the result box", async () => {
+		if (!existsSync(anvilPath)) {
+			throw new Error(`Missing anvil binary at ${anvilPath}`);
+		}
 
-			const result = await runCli(
-				["scan", "--calldata", calldata, "--quiet"],
-				baseEnv(),
-			);
+		const result = await runCli(["scan", "--calldata", calldata, "--quiet"], baseEnv());
 
-			expect(result.exitCode).toBe(0);
-			const output = stripAnsi(result.stdout).trim();
-			expect(output).toContain("┌");
-			expect(output).toContain("Protocol:");
-			expect(output).toContain("Action:");
-			expect(output).toContain("Contract:");
-			expect(output).toContain("💰 BALANCE CHANGES");
-			expect(output).toContain("- 1 ETH");
-			expect(output).toContain("+ 1 WETH");
-			expect(output).toContain("🔐 APPROVALS");
-			expect(output).toContain("📊 RISK:");
-			expect(output).not.toContain("Simulation pending");
-			expect(output).not.toContain("Simulation failed");
-		},
-		180000,
-	);
+		expect(result.exitCode).toBe(0);
+		const output = stripAnsi(result.stdout).trim();
+		expect(output).toContain("┌");
+		expect(output).toContain("Protocol:");
+		expect(output).toContain("Action:");
+		expect(output).toContain("Contract:");
+		expect(output).toContain("💰 BALANCE CHANGES");
+		expect(output).toContain("- 1 ETH");
+		expect(output).toContain("+ 1 WETH");
+		expect(output).toContain("🔐 APPROVALS");
+		expect(output).toContain("📊 RISK:");
+		expect(output).not.toContain("Simulation pending");
+		expect(output).not.toContain("Simulation failed");
+	}, 180000);
 
-	test(
-		"scan --calldata returns anvil simulation metadata",
-		async () => {
-			if (!existsSync(anvilPath)) {
-				throw new Error(`Missing anvil binary at ${anvilPath}`);
-			}
+	test("scan --calldata returns anvil simulation metadata", async () => {
+		if (!existsSync(anvilPath)) {
+			throw new Error(`Missing anvil binary at ${anvilPath}`);
+		}
 
-			const result = await runCli(
-				["scan", "--calldata", calldata, "--format", "json", "--quiet"],
-				baseEnv(),
-			);
+		const result = await runCli(
+			["scan", "--calldata", calldata, "--format", "json", "--quiet"],
+			baseEnv(),
+		);
 
-			expect(result.exitCode).toBe(0);
-			const parsed = JSON.parse(result.stdout);
-			const simulation = parsed?.scan?.simulation;
-			expect(simulation).toBeDefined();
-			expect(simulation?.success).toBe(true);
-			const notes = Array.isArray(simulation?.notes) ? simulation.notes : [];
-			const hasHeuristicNote = notes.some((note: unknown) =>
-				typeof note === "string" && note.includes("Heuristic-only simulation"),
-			);
-			expect(hasHeuristicNote).toBe(false);
-		},
-		180000,
-	);
+		expect(result.exitCode).toBe(0);
+		const parsed = JSON.parse(result.stdout);
+		const simulation = parsed?.scan?.simulation;
+		expect(simulation).toBeDefined();
+		expect(simulation?.success).toBe(true);
+		const notes = Array.isArray(simulation?.notes) ? simulation.notes : [];
+		const hasHeuristicNote = notes.some(
+			(note: unknown) => typeof note === "string" && note.includes("Heuristic-only simulation"),
+		);
+		expect(hasHeuristicNote).toBe(false);
+	}, 180000);
 });
