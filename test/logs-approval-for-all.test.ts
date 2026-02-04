@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { encodeAbiParameters, encodeEventTopics, type AbiEvent, type Log } from "viem";
+import { type AbiEvent, encodeAbiParameters, encodeEventTopics, type Log } from "viem";
 import { parseReceiptLogs } from "../src/simulations/logs";
 
 const APPROVAL_FOR_ALL_EVENT: AbiEvent = {
@@ -34,9 +34,9 @@ describe("parseReceiptLogs", () => {
 			topics,
 			data,
 			blockNumber: 1n,
-			transactionHash: "0x" + "11".repeat(32),
+			transactionHash: `0x${"11".repeat(32)}`,
 			transactionIndex: 0,
-			blockHash: "0x" + "22".repeat(32),
+			blockHash: `0x${"22".repeat(32)}`,
 			logIndex: 0,
 			removed: false,
 		} satisfies Log;
