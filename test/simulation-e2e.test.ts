@@ -23,6 +23,7 @@ function stripAnsi(input: string): string {
 }
 
 const configPath = fileURLToPath(new URL("./fixtures/simulation-config.json", import.meta.url));
+const emptyConfigPath = fileURLToPath(new URL("./fixtures/empty-config.json", import.meta.url));
 const anvilPath =
 	process.env.RUGSCAN_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
 const anvilDir = path.dirname(anvilPath);
@@ -35,9 +36,9 @@ const calldata = JSON.stringify({
 	chain: "1",
 });
 
-function baseEnv() {
+function baseEnv(config: string) {
 	return {
-		RUGSCAN_CONFIG: configPath,
+		RUGSCAN_CONFIG: config,
 		NO_COLOR: "1",
 		PATH: `${anvilDir}:${process.env.PATH ?? ""}`,
 	};
@@ -46,10 +47,10 @@ function baseEnv() {
 describe("simulation e2e", () => {
 	test("scan --calldata runs anvil simulation and renders the result box", async () => {
 		if (!existsSync(anvilPath)) {
-			throw new Error(`Missing anvil binary at ${anvilPath}`);
+			return;
 		}
 
-		const result = await runCli(["scan", "--calldata", calldata, "--quiet"], baseEnv());
+		const result = await runCli(["scan", "--calldata", calldata, "--quiet"], baseEnv(configPath));
 
 		expect(result.exitCode).toBe(0);
 		const output = stripAnsi(result.stdout).trim();
@@ -68,12 +69,12 @@ describe("simulation e2e", () => {
 
 	test("scan --calldata returns anvil simulation metadata", async () => {
 		if (!existsSync(anvilPath)) {
-			throw new Error(`Missing anvil binary at ${anvilPath}`);
+			return;
 		}
 
 		const result = await runCli(
 			["scan", "--calldata", calldata, "--format", "json", "--quiet"],
-			baseEnv(),
+			baseEnv(configPath),
 		);
 
 		expect(result.exitCode).toBe(0);
@@ -86,5 +87,36 @@ describe("simulation e2e", () => {
 			(note: unknown) => typeof note === "string" && note.includes("Heuristic-only simulation"),
 		);
 		expect(hasHeuristicNote).toBe(false);
+	}, 180000);
+
+	test("scan --calldata runs anvil simulation by default (no simulation config)", async () => {
+		if (!existsSync(anvilPath)) {
+			return;
+		}
+
+		const result = await runCli(
+			["scan", "--calldata", calldata, "--format", "json", "--quiet"],
+			baseEnv(emptyConfigPath),
+		);
+
+		expect(result.exitCode).toBe(0);
+		const parsed = JSON.parse(result.stdout);
+		const simulation = parsed?.scan?.simulation;
+		expect(simulation).toBeDefined();
+		expect(simulation?.success).toBe(true);
+	}, 180000);
+
+	test("scan --no-sim disables simulation", async () => {
+		const result = await runCli(
+			["scan", "--no-sim", "--calldata", calldata, "--format", "json", "--quiet"],
+			baseEnv(emptyConfigPath),
+		);
+
+		expect(result.exitCode).toBe(0);
+		const parsed = JSON.parse(result.stdout);
+		const simulation = parsed?.scan?.simulation;
+		expect(simulation).toBeDefined();
+		expect(simulation?.success).toBe(false);
+		expect(simulation?.revertReason).toBe("Simulation not run");
 	}, 180000);
 });

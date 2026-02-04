@@ -19,8 +19,9 @@ import type {
 	ConfidenceLevel,
 	Config,
 } from "../types";
-import { getAnvilClient } from "./anvil";
+import { AnvilUnavailableError, getAnvilClient } from "./anvil";
 import { type ParsedTransfer, parseReceiptLogs } from "./logs";
+import { buildSimulationNotRun } from "./verdict";
 
 const HIGH_BALANCE = 10n ** 22n;
 
@@ -95,6 +96,17 @@ export async function simulateBalance(
 	try {
 		return await simulateWithAnvil(tx, chain, config);
 	} catch (error) {
+		if (error instanceof AnvilUnavailableError) {
+			const notRun = buildSimulationNotRun(tx);
+			return {
+				...notRun,
+				notes: [
+					...notRun.notes,
+					`Hint: ${error.message}`,
+					"Hint: install Foundry (includes Anvil): https://getfoundry.sh (then run foundryup)",
+				],
+			};
+		}
 		const message = error instanceof Error ? error.message : "Anvil simulation failed";
 		return simulateHeuristic(tx, chain, message, hints);
 	}

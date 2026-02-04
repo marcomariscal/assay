@@ -37,6 +37,7 @@ Options:
   --from         Optional from address (used for simulation/intent when present)
   --value        Optional tx value (decimal or 0x hex)
   --data         Raw hex calldata (alternative to --calldata)
+  --no-sim       Disable transaction simulation (Anvil)
   --fail-on      Exit non-zero on recommendation >= threshold (default: warning)
   --output       Output file path or - for stdout (default: -)
   --quiet        Suppress non-essential logs
@@ -170,6 +171,7 @@ async function runScan(args: string[]) {
 	const format = parseFormat(getFlagValue(args, ["--format"]));
 	const output = getFlagValue(args, ["--output"]) ?? "-";
 	const quiet = args.includes("--quiet");
+	const noSim = args.includes("--no-sim");
 	const failOn = parseFailOn(getFlagValue(args, ["--fail-on"]));
 	const chainValue = getFlagValue(args, ["--chain", "-c"]);
 	const addressFlag = getFlagValue(args, ["--address"]);
@@ -233,6 +235,9 @@ async function runScan(args: string[]) {
 
 	try {
 		const config = await loadConfig();
+		if (noSim) {
+			config.simulation = { ...config.simulation, enabled: false };
+		}
 		const showProgress = format === "text" && !quiet && output === "-";
 		const progress = showProgress ? createProgressRenderer(process.stdout.isTTY) : undefined;
 		if (format === "text" && !quiet && output === "-") {
@@ -485,6 +490,12 @@ function coerceTxObject(record: Record<string, unknown>): TxObject | null {
 	if (isRecord(tx)) candidates.push(tx);
 	const txParams = record.txParams;
 	if (isRecord(txParams)) candidates.push(txParams);
+	const params = record.params;
+	if (Array.isArray(params)) {
+		for (const param of params) {
+			if (isRecord(param)) candidates.push(param);
+		}
+	}
 
 	for (const obj of candidates) {
 		const to = getString(obj, "to");
