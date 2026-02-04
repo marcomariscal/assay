@@ -1,5 +1,6 @@
 import type { ScanInput } from "../schema";
-import type { AnalysisResult, BalanceSimulationResult } from "../types";
+import { bumpRecommendationToFloor, evaluateDrainerHeuristic } from "../heuristics/drainer";
+import type { AnalysisResult, BalanceSimulationResult, Finding } from "../types";
 
 export function applySimulationVerdict(
 	input: ScanInput,
@@ -7,7 +8,24 @@ export function applySimulationVerdict(
 ): AnalysisResult {
 	if (!input.calldata) return analysis;
 	const simulation = analysis.simulation;
-	if (simulation && simulation.success) return analysis;
+	if (simulation && simulation.success) {
+		const drainer = evaluateDrainerHeuristic(analysis);
+		if (!drainer.recommendationFloor || drainer.reasons.length === 0) return analysis;
+		const recommendation = bumpRecommendationToFloor(
+			analysis.recommendation,
+			drainer.recommendationFloor,
+		);
+		const findings: Finding[] = drainer.reasons.map((reason) => ({
+			level: "warning",
+			code: "DRAINER_LIKE_SIMULATION",
+			message: reason,
+		}));
+		return {
+			...analysis,
+			recommendation,
+			findings: [...analysis.findings, ...findings],
+		};
+	}
 	const recommendation = ensureCaution(analysis.recommendation);
 	return {
 		...analysis,
