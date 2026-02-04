@@ -258,7 +258,8 @@ const aaveGatewayDepositEth: IntentTemplate = {
 
 const aaveGatewayWithdrawEth: IntentTemplate = {
 	id: "aave-gateway-withdraw-eth",
-	match: (call) => call.functionName === "withdrawETH" || call.functionName === "withdrawETHWithPermit",
+	match: (call) =>
+		call.functionName === "withdrawETH" || call.functionName === "withdrawETHWithPermit",
 	render: () => "Withdraw ETH from Aave",
 };
 

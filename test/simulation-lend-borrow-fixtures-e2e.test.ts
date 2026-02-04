@@ -94,7 +94,9 @@ const fixtures: Fixture[] = [
 	},
 	{
 		name: "Aave V3 gateway withdraw ETH",
-		txPath: fileURLToPath(new URL("./fixtures/lend-borrow/aave-v3-gateway-withdraw.tx.json", import.meta.url)),
+		txPath: fileURLToPath(
+			new URL("./fixtures/lend-borrow/aave-v3-gateway-withdraw.tx.json", import.meta.url),
+		),
 		configPath: fileURLToPath(
 			new URL("./fixtures/lend-borrow/aave-v3-gateway-withdraw.config.json", import.meta.url),
 		),
@@ -102,90 +104,91 @@ const fixtures: Fixture[] = [
 	},
 	{
 		name: "Aave V3 gateway borrow ETH",
-		txPath: fileURLToPath(new URL("./fixtures/lend-borrow/aave-v3-gateway-borrow.tx.json", import.meta.url)),
-		configPath: fileURLToPath(new URL("./fixtures/lend-borrow/aave-v3-gateway-borrow.config.json", import.meta.url)),
+		txPath: fileURLToPath(
+			new URL("./fixtures/lend-borrow/aave-v3-gateway-borrow.tx.json", import.meta.url),
+		),
+		configPath: fileURLToPath(
+			new URL("./fixtures/lend-borrow/aave-v3-gateway-borrow.config.json", import.meta.url),
+		),
 		expectations: { nativeDiff: "positive", erc20In: true },
 	},
 	{
 		name: "Aave V3 gateway repay ETH",
-		txPath: fileURLToPath(new URL("./fixtures/lend-borrow/aave-v3-gateway-repay.tx.json", import.meta.url)),
-		configPath: fileURLToPath(new URL("./fixtures/lend-borrow/aave-v3-gateway-repay.config.json", import.meta.url)),
+		txPath: fileURLToPath(
+			new URL("./fixtures/lend-borrow/aave-v3-gateway-repay.tx.json", import.meta.url),
+		),
+		configPath: fileURLToPath(
+			new URL("./fixtures/lend-borrow/aave-v3-gateway-repay.config.json", import.meta.url),
+		),
 		expectations: { nativeDiff: "negative", erc20Out: true },
 	},
 ];
 
 describe("lend/borrow simulation fixtures e2e", () => {
 	for (const fixture of fixtures) {
-		test(
-			`${fixture.name} simulates successfully and has non-empty intent/protocol labels`,
-			async () => {
-				if (!existsSync(foundryDefaultAnvilPath)) {
-					return;
+		test(`${fixture.name} simulates successfully and has non-empty intent/protocol labels`, async () => {
+			if (!existsSync(foundryDefaultAnvilPath)) {
+				return;
+			}
+
+			const rawFixture = await Bun.file(fixture.txPath).text();
+			const parsedFixture = JSON.parse(rawFixture);
+			expect(isRecord(parsedFixture)).toBe(true);
+			if (!isRecord(parsedFixture)) throw new Error("Invalid fixture JSON");
+
+			const calldata = JSON.stringify({
+				to: parsedFixture.to,
+				from: parsedFixture.from,
+				value: parsedFixture.value,
+				data: parsedFixture.data,
+				chain: String(parsedFixture.chain),
+			});
+
+			const result = await runCli(["scan", "--calldata", calldata, "--format", "json", "--quiet"], {
+				RUGSCAN_CONFIG: fixture.configPath,
+				NO_COLOR: "1",
+				PATH: bunDir,
+			});
+
+			expect(result.exitCode).toBe(0);
+			const parsed = JSON.parse(result.stdout);
+			const { scan, simulation } = ensureSimulationSuccess(parsed);
+
+			// Protocol labeling should be non-empty.
+			const contract = scan.contract;
+			expect(isRecord(contract)).toBe(true);
+			if (isRecord(contract)) {
+				expect(isStringArray(contract.tags)).toBe(true);
+				if (isStringArray(contract.tags)) {
+					expect(contract.tags.length > 0).toBe(true);
+					expect(nonEmptyString(contract.tags[0])).toBe(true);
 				}
+			}
 
-				const rawFixture = await Bun.file(fixture.txPath).text();
-				const parsedFixture = JSON.parse(rawFixture);
-				expect(isRecord(parsedFixture)).toBe(true);
-				if (!isRecord(parsedFixture)) throw new Error("Invalid fixture JSON");
+			// Action labeling should be non-empty.
+			expect(nonEmptyString(scan.intent)).toBe(true);
 
-				const calldata = JSON.stringify({
-					to: parsedFixture.to,
-					from: parsedFixture.from,
-					value: parsedFixture.value,
-					data: parsedFixture.data,
-					chain: String(parsedFixture.chain),
-				});
-
-				const result = await runCli(
-					["scan", "--calldata", calldata, "--format", "json", "--quiet"],
-					{
-						RUGSCAN_CONFIG: fixture.configPath,
-						NO_COLOR: "1",
-						PATH: bunDir,
-					},
-				);
-
-				expect(result.exitCode).toBe(0);
-				const parsed = JSON.parse(result.stdout);
-				const { scan, simulation } = ensureSimulationSuccess(parsed);
-
-				// Protocol labeling should be non-empty.
-				const contract = scan.contract;
-				expect(isRecord(contract)).toBe(true);
-				if (isRecord(contract)) {
-					expect(isStringArray(contract.tags)).toBe(true);
-					if (isStringArray(contract.tags)) {
-						expect(contract.tags.length > 0).toBe(true);
-						expect(nonEmptyString(contract.tags[0])).toBe(true);
-					}
+			const nativeDiffRaw = simulation.nativeDiff;
+			expect(typeof nativeDiffRaw).toBe("string");
+			if (typeof nativeDiffRaw === "string") {
+				const diff = BigInt(nativeDiffRaw);
+				if (fixture.expectations.nativeDiff === "negative") {
+					expect(diff < 0n).toBe(true);
+				} else {
+					expect(diff > 0n).toBe(true);
 				}
+			}
 
-				// Action labeling should be non-empty.
-				expect(nonEmptyString(scan.intent)).toBe(true);
+			const changes = assetChangesOf(simulation);
+			const erc20In = findErc20Changes(changes, "in");
+			const erc20Out = findErc20Changes(changes, "out");
 
-				const nativeDiffRaw = simulation.nativeDiff;
-				expect(typeof nativeDiffRaw).toBe("string");
-				if (typeof nativeDiffRaw === "string") {
-					const diff = BigInt(nativeDiffRaw);
-					if (fixture.expectations.nativeDiff === "negative") {
-						expect(diff < 0n).toBe(true);
-					} else {
-						expect(diff > 0n).toBe(true);
-					}
-				}
-
-				const changes = assetChangesOf(simulation);
-				const erc20In = findErc20Changes(changes, "in");
-				const erc20Out = findErc20Changes(changes, "out");
-
-				if (fixture.expectations.erc20In) {
-					expect(erc20In.length > 0).toBe(true);
-				}
-				if (fixture.expectations.erc20Out) {
-					expect(erc20Out.length > 0).toBe(true);
-				}
-			},
-			240000,
-		);
+			if (fixture.expectations.erc20In) {
+				expect(erc20In.length > 0).toBe(true);
+			}
+			if (fixture.expectations.erc20Out) {
+				expect(erc20Out.length > 0).toBe(true);
+			}
+		}, 240000);
 	}
 });
