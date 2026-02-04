@@ -84,7 +84,38 @@ describe("cli scan", () => {
 			nonce: "0x1",
 		});
 
-		const result = await runCli(["scan", "--calldata", tx, "--format", "json", "--quiet"]);
+		const result = await runCli(["scan", "--no-sim", "--calldata", tx, "--format", "json", "--quiet"]);
+		expect(result.exitCode).toBe(0);
+		const parsed = JSON.parse(result.stdout);
+		expect(parsed.scan?.input?.calldata?.to).toBe("0x66a9893cc07d91d95644aedd05d03f95e1dba8af");
+		expect(parsed.scan?.input?.calldata?.chain).toBe("1");
+	}, 120000);
+
+	test("--calldata accepts JSON-RPC request objects (params[0])", async () => {
+		const request = JSON.stringify({
+			jsonrpc: "2.0",
+			id: 1,
+			method: "eth_sendTransaction",
+			params: [
+				{
+					chainId: "0x1",
+					from: "0x24274566a1ad6a9b056e8e2618549ebd2f5141a7",
+					to: "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+					value: "0x0",
+					data: "0x",
+				},
+			],
+		});
+
+		const result = await runCli([
+			"scan",
+			"--no-sim",
+			"--calldata",
+			request,
+			"--format",
+			"json",
+			"--quiet",
+		]);
 		expect(result.exitCode).toBe(0);
 		const parsed = JSON.parse(result.stdout);
 		expect(parsed.scan?.input?.calldata?.to).toBe("0x66a9893cc07d91d95644aedd05d03f95e1dba8af");

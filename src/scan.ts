@@ -210,7 +210,9 @@ async function runBalanceSimulation(
 
 function shouldRunSimulation(config?: Config): boolean {
 	const simulation = config?.simulation;
-	if (!simulation) return false;
+	// Zero-config default: attempt simulation on calldata scans unless explicitly disabled.
+	// If Anvil is unavailable, the simulation layer will report "not run" with hints.
+	if (!simulation) return true;
 	if (simulation.enabled === undefined) return true;
 	return simulation.enabled;
 }
