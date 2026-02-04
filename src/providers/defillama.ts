@@ -27,6 +27,7 @@ const KNOWN_PROTOCOL_ADDRESSES: Partial<Record<Chain, Record<string, ProtocolOve
 		"0x66a9893cc07d91d95644aedd05d03f95e1dba8af": { name: "Uniswap", slug: "uniswap" },
 		// Aave
 		"0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2": { name: "Aave V3", slug: "aave-v3" },
+		"0xd322a49006fc828f9b5b37ab215f99b4e5cab19c": { name: "Aave V3", slug: "aave-v3" },
 		"0x7d2768de32b0b80b7a3454c06bdac94a69ddc7a9": { name: "Aave V2", slug: "aave-v2" },
 		// Curve
 		"0xbebc44782c7db0a1a60cb6fe97d0e3d5c3c9f0fe": { name: "Curve DEX", slug: "curve-dex" },

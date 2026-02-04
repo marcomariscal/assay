@@ -250,6 +250,31 @@ const aaveWithdraw: IntentTemplate = {
 	},
 };
 
+const aaveGatewayDepositEth: IntentTemplate = {
+	id: "aave-gateway-deposit-eth",
+	match: (call) => call.functionName === "depositETH",
+	render: () => "Supply ETH to Aave",
+};
+
+const aaveGatewayWithdrawEth: IntentTemplate = {
+	id: "aave-gateway-withdraw-eth",
+	match: (call) =>
+		call.functionName === "withdrawETH" || call.functionName === "withdrawETHWithPermit",
+	render: () => "Withdraw ETH from Aave",
+};
+
+const aaveGatewayBorrowEth: IntentTemplate = {
+	id: "aave-gateway-borrow-eth",
+	match: (call) => call.functionName === "borrowETH",
+	render: () => "Borrow ETH from Aave",
+};
+
+const aaveGatewayRepayEth: IntentTemplate = {
+	id: "aave-gateway-repay-eth",
+	match: (call) => call.functionName === "repayETH",
+	render: () => "Repay ETH to Aave",
+};
+
 const uniswapV2ExactTokensForTokens: IntentTemplate = {
 	id: "uniswap-v2-exact-tokens-for-tokens",
 	match: (call) => call.functionName === "swapExactTokensForTokens",
@@ -457,6 +482,10 @@ export const INTENT_TEMPLATES: IntentTemplate[] = [
 	aaveRepay,
 	aaveSupply,
 	aaveWithdraw,
+	aaveGatewayDepositEth,
+	aaveGatewayWithdrawEth,
+	aaveGatewayBorrowEth,
+	aaveGatewayRepayEth,
 	uniswapV2ExactTokensForTokens,
 	uniswapV2TokensForExactTokens,
 	uniswapV2ExactEthForTokens,
