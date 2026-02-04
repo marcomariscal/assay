@@ -1,6 +1,6 @@
-import type { ScanInput } from "../schema";
 import { determineRecommendation } from "../analyzer";
 import { KNOWN_SPENDERS } from "../approvals/known-spenders";
+import type { ScanInput } from "../schema";
 import type { AnalysisResult, BalanceSimulationResult, Finding } from "../types";
 
 const MAX_UINT256 = (1n << 256n) - 1n;

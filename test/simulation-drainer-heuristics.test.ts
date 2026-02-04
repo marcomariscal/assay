@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { applySimulationVerdict } from "../src/simulations/verdict";
 import type { ScanInput } from "../src/schema";
+import { applySimulationVerdict } from "../src/simulations/verdict";
 import type { AnalysisResult, BalanceSimulationResult } from "../src/types";
 
 const MAX_UINT256 = (1n << 256n) - 1n;
