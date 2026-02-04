@@ -1,0 +1,10 @@
+{
+  "rpcUrls": {
+    "ethereum": "https://ethereum.publicnode.com"
+  },
+  "simulation": {
+    "enabled": true,
+    "rpcUrl": "https://ethereum.publicnode.com",
+    "forkBlock": 24276909
+  }
+}
