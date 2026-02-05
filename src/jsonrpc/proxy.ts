@@ -107,10 +107,19 @@ function jsonRpcError(
 	};
 }
 
+function corsHeaders(): Record<string, string> {
+	return {
+		"access-control-allow-origin": "*",
+		"access-control-allow-methods": "POST, OPTIONS, GET",
+		"access-control-allow-headers": "content-type, authorization",
+		"access-control-max-age": "86400",
+	};
+}
+
 function jsonResponse(payload: unknown, status = 200): Response {
 	return new Response(JSON.stringify(payload), {
 		status,
-		headers: { "content-type": "application/json" },
+		headers: { "content-type": "application/json", ...corsHeaders() },
 	});
 }
 
@@ -332,6 +341,12 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 		hostname: options.hostname ?? "127.0.0.1",
 		port: options.port ?? 8545,
 		fetch: async (request: Request): Promise<Response> => {
+			if (request.method === "OPTIONS") {
+				return new Response(null, { status: 204, headers: corsHeaders() });
+			}
+			if (request.method === "GET") {
+				return jsonResponse({ ok: true, name: "rugscan-jsonrpc-proxy" }, 200);
+			}
 			if (request.method !== "POST") {
 				return jsonResponse(jsonRpcError(null, -32601, "Method not allowed"), 405);
 			}
@@ -491,13 +506,13 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					responses.push(res);
 				}
 				if (responses.length === 0) {
-					return new Response(null, { status: 204 });
+					return new Response(null, { status: 204, headers: corsHeaders() });
 				}
 				responsePayload = responses;
 			} else {
 				const res = await handleSingle(body);
 				if (!res) {
-					return new Response(null, { status: 204 });
+					return new Response(null, { status: 204, headers: corsHeaders() });
 				}
 				responsePayload = res;
 			}
