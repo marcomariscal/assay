@@ -1,0 +1,54 @@
+{
+	"contract": {
+		"address": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+		"chain": "ethereum",
+		"name": "Universal Router",
+		"verified": true,
+		"is_proxy": false
+	},
+	"protocol": "Uniswap",
+	"protocolMatch": {
+		"name": "Uniswap",
+		"slug": "uniswap"
+	},
+	"findings": [
+		{
+			"level": "safe",
+			"code": "VERIFIED",
+			"message": "Source code verified: Universal Router"
+		},
+		{
+			"level": "safe",
+			"code": "KNOWN_PROTOCOL",
+			"message": "Recognized protocol: Uniswap"
+		},
+		{
+			"level": "info",
+			"code": "CALLDATA_DECODED",
+			"message": "Decoded calldata: swapExactTokensForTokens(amountIn: 1, amountOutMin: 1)",
+			"details": {
+				"selector": "0x12345678",
+				"signature": "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+				"functionName": "swapExactTokensForTokens",
+				"source": "fixture",
+				"args": {
+					"amountIn": "1",
+					"amountOutMin": "1"
+				}
+			}
+		}
+	],
+	"confidence": {
+		"level": "high",
+		"reasons": []
+	},
+	"recommendation": "ok",
+	"intent": "Swap ETH → USDC",
+	"simulation": {
+		"success": true,
+		"assetChanges": [],
+		"approvals": [],
+		"confidence": "high",
+		"notes": []
+	}
+}

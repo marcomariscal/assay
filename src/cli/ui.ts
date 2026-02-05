@@ -585,7 +585,21 @@ function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string
 
 	const note = result.ai ? "" : " (AI disabled)";
 	const colored = riskColor(label)(label);
-	return [` 📊 RISK: ${colored}${note}`];
+
+	const lines: string[] = [];
+	lines.push(` 📊 RISK: ${colored}${note}`);
+
+	if (simulationUncertain) {
+		const simulation = result.simulation;
+		const reason = !simulation
+			? "simulation not run"
+			: !simulation.success
+				? `simulation failed${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`
+				: `simulation ${simulation.confidence} confidence`;
+		lines.push(COLORS.warning(` ⚠️ INCONCLUSIVE: ${reason} — balances/approvals may be unknown`));
+	}
+
+	return lines;
 }
 
 export function renderResultBox(

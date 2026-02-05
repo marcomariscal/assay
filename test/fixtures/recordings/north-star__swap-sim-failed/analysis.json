@@ -1,0 +1,40 @@
+{
+	"contract": {
+		"address": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+		"chain": "ethereum",
+		"name": "Universal Router",
+		"verified": true,
+		"is_proxy": false
+	},
+	"protocol": "Uniswap",
+	"protocolMatch": {
+		"name": "Uniswap",
+		"slug": "uniswap"
+	},
+	"findings": [
+		{
+			"level": "safe",
+			"code": "VERIFIED",
+			"message": "Source code verified: Universal Router"
+		},
+		{
+			"level": "safe",
+			"code": "KNOWN_PROTOCOL",
+			"message": "Recognized protocol: Uniswap"
+		}
+	],
+	"confidence": {
+		"level": "high",
+		"reasons": []
+	},
+	"recommendation": "ok",
+	"intent": "Swap ETH → USDC",
+	"simulation": {
+		"success": false,
+		"revertReason": "Timeout",
+		"assetChanges": [],
+		"approvals": [],
+		"confidence": "low",
+		"notes": ["Simulation failed", "Hint: wallet fast-mode enabled; simulation skipped."]
+	}
+}
