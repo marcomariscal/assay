@@ -1,15 +1,19 @@
 #!/usr/bin/env bun
 import { analyze } from "../analyzer";
 import { analyzeApproval } from "../approval";
-import { loadConfig } from "../config";
+import { loadConfig, saveRpcUrl } from "../config";
 import { MAX_UINT256 } from "../constants";
 import { createJsonRpcProxyServer } from "../jsonrpc/proxy";
 import { resolveProvider } from "../providers/ai";
 import { resolveScanChain, scanWithAnalysis } from "../scan";
-import type { CalldataInput, ScanInput } from "../schema";
-import { scanInputSchema } from "../schema";
+import { type CalldataInput, type ScanInput, scanInputSchema } from "../schema";
 import type { ApprovalContext, ApprovalTx, Chain, Recommendation } from "../types";
 import { formatSarif } from "./formatters/sarif";
+import {
+	formatMissingUpstreamError,
+	RUGSCAN_UPSTREAM_ENV,
+	resolveProxyUpstreamUrl,
+} from "./proxy-upstream";
 import {
 	createProgressRenderer,
 	renderApprovalBox,
@@ -28,7 +32,7 @@ Usage:
   rugscan analyze <address> [--chain <chain>] [--ai] [--model <model>]
   rugscan scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>]
   rugscan approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>]
-  rugscan proxy --upstream <rpc-url> [--port <port>] [--hostname <host>] [--chain <chain>] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
+  rugscan proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
 
 Options:
   --chain, -c    Chain to analyze on (default: ethereum)
@@ -46,6 +50,8 @@ Options:
 
   Proxy:
   --upstream     Upstream JSON-RPC HTTP URL to forward requests to
+                 (default: $RUGSCAN_UPSTREAM or config rpcUrls.<chain>)
+  --save         Save --upstream to config file under rpcUrls.ethereum
   --hostname     Hostname to bind the proxy server (default: 127.0.0.1)
   --port         Port to bind the proxy server (default: 8545)
   --threshold    Treat recommendation >= threshold as risky (default: caution)
@@ -62,6 +68,7 @@ Options:
   --expected     Expected spender address
 
 Environment:
+  RUGSCAN_UPSTREAM        Default upstream JSON-RPC URL for rugscan proxy
   ETHERSCAN_API_KEY       Etherscan API key (enables full analysis)
   BASESCAN_API_KEY        BaseScan API key
   ARBISCAN_API_KEY        Arbiscan API key
@@ -350,9 +357,16 @@ async function runApproval(args: string[]) {
 }
 
 async function runProxy(args: string[]) {
-	const upstreamUrl = getFlagValue(args, ["--upstream"]);
-	if (!upstreamUrl) {
-		console.error(renderError("Error: --upstream is required"));
+	const upstreamRaw = getFlagValue(args, ["--upstream"]);
+	const cliUpstream = upstreamRaw && !upstreamRaw.startsWith("--") ? upstreamRaw : undefined;
+	const save = args.includes("--save");
+
+	if (args.includes("--upstream") && !cliUpstream) {
+		console.error(renderError("Error: --upstream requires a value"));
+		process.exit(1);
+	}
+	if (save && !cliUpstream) {
+		console.error(renderError("Error: --save requires --upstream <rpc-url>"));
 		process.exit(1);
 	}
 
@@ -367,7 +381,26 @@ async function runProxy(args: string[]) {
 	const quiet = args.includes("--quiet");
 
 	const config = await loadConfig();
+	const resolved = resolveProxyUpstreamUrl({
+		cliUpstream,
+		chainArg: chain,
+		config,
+		envUpstream: process.env[RUGSCAN_UPSTREAM_ENV],
+	});
+	if (!resolved) {
+		console.error(renderError(formatMissingUpstreamError({ chainArg: chain })));
+		process.exit(1);
+	}
 
+	if (save) {
+		const savedChain: Chain = "ethereum";
+		const savedPath = await saveRpcUrl({ chain: savedChain, rpcUrl: resolved.upstreamUrl });
+		if (!quiet) {
+			console.log(`Saved rpcUrls.${savedChain} to ${savedPath}`);
+		}
+	}
+
+	const upstreamUrl = resolved.upstreamUrl;
 	const defaultOnRisk = process.stdin.isTTY && process.stdout.isTTY ? "prompt" : "block";
 	const server = createJsonRpcProxyServer({
 		upstreamUrl,

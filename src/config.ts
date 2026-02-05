@@ -1,14 +1,21 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { AIConfig, Chain, Config, SimulationConfig } from "./types";
 
 const VALID_CHAINS: Chain[] = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
 
+export const DEFAULT_USER_CONFIG_PATH = path.join(
+	os.homedir(),
+	".config",
+	"rugscan",
+	"config.json",
+);
+
 const DEFAULT_CONFIG_PATHS = [
 	path.resolve(process.cwd(), "rugscan.config.json"),
-	path.join(os.homedir(), ".config", "rugscan", "config.json"),
+	DEFAULT_USER_CONFIG_PATH,
 ];
 
 export async function loadConfig(): Promise<Config> {
@@ -16,6 +23,29 @@ export async function loadConfig(): Promise<Config> {
 	const fileConfig = configPath ? await readConfigFile(configPath) : {};
 	const envConfig = loadEnvConfig();
 	return mergeConfig(fileConfig, envConfig);
+}
+
+export function resolveUserConfigPathForWrite(): string {
+	// Allow tests and power-users to redirect the config path.
+	const explicitPath = process.env.RUGSCAN_CONFIG;
+	return explicitPath && explicitPath.trim().length > 0 ? explicitPath : DEFAULT_USER_CONFIG_PATH;
+}
+
+export async function saveRpcUrl(options: { chain: Chain; rpcUrl: string }): Promise<string> {
+	const configPath = resolveUserConfigPathForWrite();
+	await mkdir(path.dirname(configPath), { recursive: true });
+
+	const existing = await readJsonRecordIfExists(configPath);
+	const next: Record<string, unknown> = { ...existing };
+
+	const rpcUrls: Record<string, unknown> = isRecord(existing.rpcUrls)
+		? { ...existing.rpcUrls }
+		: {};
+	rpcUrls[options.chain] = options.rpcUrl;
+	next.rpcUrls = rpcUrls;
+
+	await writeFile(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+	return configPath;
 }
 
 function resolveConfigPath(): string | undefined {
@@ -66,6 +96,19 @@ function safeJsonParse(raw: string): unknown | null {
 	} catch {
 		return null;
 	}
+}
+
+async function readJsonRecordIfExists(configPath: string): Promise<Record<string, unknown>> {
+	if (!existsSync(configPath)) return {};
+	const raw = await readFile(configPath, "utf-8");
+	const parsed = safeJsonParse(raw);
+	if (!parsed) {
+		throw new Error(`Invalid JSON in config file: ${configPath}`);
+	}
+	if (!isRecord(parsed)) {
+		throw new Error(`Config file must contain a JSON object: ${configPath}`);
+	}
+	return parsed;
 }
 
 function parseConfig(value: unknown): Config {

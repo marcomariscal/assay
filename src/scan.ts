@@ -11,6 +11,7 @@ import type {
 } from "./schema";
 import { simulateBalance } from "./simulations/balance";
 import { applySimulationVerdict, buildSimulationNotRun } from "./simulations/verdict";
+import type { TimingStore } from "./timing";
 import type {
 	AnalysisResult,
 	BalanceSimulationResult,
@@ -36,6 +37,7 @@ export interface ScanOptions {
 	 * Advanced analyzer options (ex: provider budgets, wallet fast mode).
 	 */
 	analyzeOptions?: AnalyzeOptions;
+	timings?: TimingStore;
 }
 
 const CHAIN_NAME_LOOKUP: Record<string, Chain> = {
@@ -98,6 +100,7 @@ export async function scanWithAnalysis(
 		chain,
 		options?.config,
 		options?.progress,
+		options?.timings,
 	);
 	const withSimulation = simulation ? { ...mergedAnalysis, simulation } : mergedAnalysis;
 	const finalAnalysis = applySimulationVerdict(normalizedInput, withSimulation);
@@ -216,6 +219,7 @@ async function runBalanceSimulation(
 	chain: Chain,
 	config: Config | undefined,
 	progress: ScanProgress | undefined,
+	timings: TimingStore | undefined,
 ): Promise<BalanceSimulationResult | undefined> {
 	if (!input.calldata) return undefined;
 
@@ -226,7 +230,7 @@ async function runBalanceSimulation(
 		return buildSimulationNotRun(input.calldata);
 	}
 
-	const result = await simulateBalance(input.calldata, chain, config);
+	const result = await simulateBalance(input.calldata, chain, config, timings);
 	progress?.({
 		provider: "Simulation",
 		status: result.success ? "success" : "error",
