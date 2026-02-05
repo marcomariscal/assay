@@ -15,15 +15,16 @@ Wrap your existing `viem` transport and block risky transactions *before* they h
   - `eth_sendTransaction`
   - `eth_sendRawTransaction`
 - Runs the full rugscan pipeline in-process (`scanWithAnalysis`).
-- If risky/unknown, throws an error containing:
-  - the `AnalyzeResponse` (structured)
-  - a rendered human-readable summary (string)
+- If risky/unknown, throws `RugscanTransportError` containing:
+  - `analyzeResponse` (structured)
+  - `renderedSummary` (human-readable string)
 
 Example:
 
 ```ts
-import { createPublicClient, http } from "viem"
-import { createRugscanViemTransport } from "rugscan"
+import { createWalletClient, http } from "viem"
+import { mainnet } from "viem/chains"
+import { createRugscanViemTransport, RugscanTransportError } from "rugscan"
 
 const upstream = http(process.env.RPC_URL!)
 
@@ -40,7 +41,27 @@ const transport = createRugscanViemTransport({
   },
 })
 
-const client = createPublicClient({ transport })
+const client = createWalletClient({ chain: mainnet, transport })
+
+// Any request that hits eth_sendTransaction / eth_sendRawTransaction will be preflight-scanned.
+try {
+  await client.request({
+    method: "eth_sendTransaction",
+    params: [
+      {
+        from: "0x...",
+        to: "0x...",
+        value: "0x0",
+        data: "0x",
+      },
+    ],
+  })
+} catch (err) {
+  if (err instanceof RugscanTransportError) {
+    console.error(err.renderedSummary)
+  }
+  throw err
+}
 ```
 
 ### ethers (provider wrapper)
