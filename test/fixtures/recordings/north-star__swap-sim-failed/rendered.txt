@@ -1,0 +1,30 @@
+Tx scan on ethereum
+
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│  Chain: ethereum                                                                  │
+│  Protocol: Uniswap (uniswap)                                                      │
+│  Action: Swap ETH → USDC                                                          │
+│  Contract: Universal Router                                                       │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│  🧾 CHECKS                                                                        │
+│  ✓ Source verified                                                                │
+│  ✓ Known protocol: Uniswap                                                        │
+│  ✓ Source code verified: Universal Router [VERIFIED]                              │
+│  ✓ Recognized protocol: Uniswap [KNOWN_PROTOCOL]                                  │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│  🛡️ POLICY / ALLOWLIST                                                           │
+│  ✓ Allowed protocol (soft): Uniswap                                               │
+│  ✓ Allowlisted to: Universal Router (0x66a9...a8af)                               │
+│  Policy decision: BLOCK (INCONCLUSIVE simulation)                                 │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│  💰 BALANCE CHANGES                                                               │
+│  - Simulation failed (Timeout)                                                    │
+│  - wallet fast-mode enabled; simulation skipped.                                  │
+│  - Balance changes unknown                                                        │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│  🔐 APPROVALS                                                                     │
+│  - Approvals unknown (simulation failed)                                          │
+├───────────────────────────────────────────────────────────────────────────────────┤
+│  📊 RISK: LOW (AI disabled)                                                       │
+│  ⚠️ INCONCLUSIVE: simulation failed (Timeout) — balances/approvals may be unknown │
+└───────────────────────────────────────────────────────────────────────────────────┘

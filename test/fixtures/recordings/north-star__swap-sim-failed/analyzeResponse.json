@@ -1,0 +1,45 @@
+{
+	"requestId": "22222222-2222-4222-8222-222222222222",
+	"scan": {
+		"input": {
+			"calldata": {
+				"to": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+				"from": "0x24274566a1ad6a9b056e8e2618549ebd2f5141a7",
+				"data": "0x12345678",
+				"value": "0",
+				"chain": "ethereum"
+			}
+		},
+		"intent": "Swap ETH → USDC",
+		"recommendation": "ok",
+		"confidence": 0.5,
+		"findings": [
+			{
+				"code": "VERIFIED",
+				"severity": "ok",
+				"message": "Source code verified"
+			},
+			{
+				"code": "KNOWN_PROTOCOL",
+				"severity": "ok",
+				"message": "Recognized protocol"
+			}
+		],
+		"contract": {
+			"address": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+			"chain": "ethereum",
+			"isContract": true,
+			"name": "Universal Router",
+			"isProxy": false,
+			"verifiedSource": true
+		},
+		"simulation": {
+			"success": false,
+			"revertReason": "Timeout",
+			"assetChanges": [],
+			"approvals": [],
+			"confidence": "low",
+			"notes": ["Simulation failed", "Hint: wallet fast-mode enabled; simulation skipped."]
+		}
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"createdAt": "2026-02-05T22:00:00.000Z",
+	"chain": "ethereum",
+	"method": "eth_sendTransaction",
+	"calldata": {
+		"to": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+		"from": "0x24274566a1ad6a9b056e8e2618549ebd2f5141a7",
+		"data": "0x12345678",
+		"value": "0",
+		"chain": "ethereum"
+	},
+	"action": "forward",
+	"recommendation": "ok",
+	"simulationSuccess": true
+}

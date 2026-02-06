@@ -1,0 +1,23 @@
+Tx scan on ethereum
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Chain: ethereum                                                         │
+│  Protocol: USDC                                                          │
+│  Action: Approve USDC allowance                                          │
+│  Contract: USD Coin                                                      │
+├──────────────────────────────────────────────────────────────────────────┤
+│  🧾 CHECKS                                                               │
+│  ✓ Source verified                                                       │
+│  ✓ Source code verified: USD Coin [VERIFIED]                             │
+│  ⚠️ Unlimited token approval (max allowance) [UNLIMITED_APPROVAL]        │
+├──────────────────────────────────────────────────────────────────────────┤
+│  💰 BALANCE CHANGES                                                      │
+│  - Simulation failed (not run)                                           │
+├──────────────────────────────────────────────────────────────────────────┤
+│  🔐 APPROVALS                                                            │
+│  - Partial approvals (simulation failed):                                │
+│  ⚠️ USD Coin: UNLIMITED to 0x0000...0002                                 │
+├──────────────────────────────────────────────────────────────────────────┤
+│  📊 RISK: LOW (AI disabled)                                              │
+│  ⚠️ INCONCLUSIVE: simulation not run — balances/approvals may be unknown │
+└──────────────────────────────────────────────────────────────────────────┘
