@@ -2,6 +2,7 @@ import type { Abi } from "viem";
 import { getChainConfig } from "../chains";
 import { fetchWithTimeout } from "../http";
 import type { Chain, VerificationResult } from "../types";
+import type { ProviderRequestOptions } from "./request-options";
 
 const SOURCIFY_API = "https://sourcify.dev/server";
 const SOURCIFY_CACHE = new Map<string, Promise<SourcifyResult> | SourcifyResult>();
@@ -15,8 +16,9 @@ interface SourcifyResult extends VerificationResult {
 export async function checkVerification(
 	address: string,
 	chain: Chain,
+	options?: ProviderRequestOptions,
 ): Promise<VerificationResult> {
-	const result = await getSourcifyResult(address, chain);
+	const result = await getSourcifyResult(address, chain, options);
 	return {
 		verified: result.verified,
 		verificationKnown: result.verificationKnown,
@@ -26,14 +28,27 @@ export async function checkVerification(
 	};
 }
 
-export async function getABI(address: string, chain: Chain): Promise<Abi | null> {
-	const result = await getSourcifyResult(address, chain);
+export async function getABI(
+	address: string,
+	chain: Chain,
+	options?: ProviderRequestOptions,
+): Promise<Abi | null> {
+	const result = await getSourcifyResult(address, chain, options);
 	if (!result.verified || !result.abi) return null;
 	return result.abi;
 }
 
-async function getSourcifyResult(address: string, chain: Chain): Promise<SourcifyResult> {
+async function getSourcifyResult(
+	address: string,
+	chain: Chain,
+	options?: ProviderRequestOptions,
+): Promise<SourcifyResult> {
 	const chainId = getChainConfig(chain).sourcifyChainId;
+
+	if (options?.cache === false) {
+		return await fetchSourcifyResult(address, chainId, options);
+	}
+
 	const key = `${chainId}:${address.toLowerCase()}`;
 	const cached = SOURCIFY_CACHE.get(key);
 	if (cached) {
@@ -42,13 +57,12 @@ async function getSourcifyResult(address: string, chain: Chain): Promise<Sourcif
 		}
 		return cached;
 	}
-
-	const fetchPromise = fetchSourcifyResult(address, chainId);
+	const fetchPromise = fetchSourcifyResult(address, chainId, options);
 	SOURCIFY_CACHE.set(key, fetchPromise);
 
 	try {
 		const resolved = await fetchPromise;
-		// Do not cache unknown results: transient network/provider issues should be retryable.
+		// Cache only when verification status is known.
 		if (resolved.verificationKnown) {
 			SOURCIFY_CACHE.set(key, resolved);
 		} else {
@@ -61,13 +75,23 @@ async function getSourcifyResult(address: string, chain: Chain): Promise<Sourcif
 	}
 }
 
-async function fetchSourcifyResult(address: string, chainId: number): Promise<SourcifyResult> {
+async function fetchSourcifyResult(
+	address: string,
+	chainId: number,
+	options?: ProviderRequestOptions,
+): Promise<SourcifyResult> {
 	const url = `${SOURCIFY_API}/files/any/${chainId}/${address}`;
+
+	const timeoutMs = options?.timeoutMs ?? 10_000;
 
 	let response: Response;
 	try {
-		response = await fetchWithTimeout(url);
-	} catch {
+		response = await fetchWithTimeout(url, { signal: options?.signal }, timeoutMs);
+	} catch (error) {
+		// Preserve abort/timeout semantics for timeboxed analyzer calls.
+		if (options?.signal?.aborted) {
+			throw error;
+		}
 		return { verified: false, verificationKnown: false };
 	}
 
