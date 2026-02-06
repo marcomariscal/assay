@@ -40,26 +40,65 @@ rugscan analyze 0x1234... --chain base
 
 ## CLI Usage
 
+Run `rugscan --help` for the full CLI reference.
+
 ```bash
 rugscan analyze <address> [options]
+rugscan scan [address] [options]
 rugscan approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>]
-
-Options:
-  --chain, -c    Target chain (default: ethereum)
-                 ethereum | base | arbitrum | optimism | polygon
-  
-  --ai           Enable AI risk analysis (requires API key)
-  
-  --model        Override AI model or force provider
-                 Examples: claude-sonnet-4-20250514
-                          openai:gpt-4o
-                          openrouter:anthropic/claude-3-haiku
-
-  --token        Token address for approval analysis
-  --spender      Spender address for approval analysis
-  --amount       Approval amount (integer or "max")
-  --expected     Expected spender address
+rugscan proxy [options]
 ```
+
+### `rugscan scan`
+
+`rugscan scan` analyzes either a contract address or an unsigned transaction (calldata) before signing.
+
+Flags:
+- `--format text|json|sarif` (default: `text`)
+- `--calldata <json|hex|@file|->` — accepts:
+  - unsigned tx JSON (Rabby/MetaMask-like)
+  - canonical calldata JSON: `{ "to": "0x...", "data": "0x...", "from?": "0x...", "value?": "...", "chain?": "..." }`
+  - raw hex calldata (MetaMask "Hex Data")
+  - `@file` to read from disk
+  - `-` to read from stdin
+- `--to/--from/--value` — when `--calldata` is raw hex (or when providing tx fields directly)
+- `--no-sim` — disable Anvil simulation
+- `--fail-on <caution|warning|danger>` — set exit threshold (default: `warning`)
+- `--output <path|->` (default: `-`)
+- `--quiet` — suppress progress/logging
+
+Examples:
+
+```bash
+rugscan scan 0x1234...
+rugscan scan --calldata @tx.json --format json
+cat tx.json | rugscan scan --calldata - --format sarif
+
+# MetaMask "Hex Data" (raw calldata)
+rugscan scan --calldata 0x... --to 0x... --from 0x... --value 0 --format json
+```
+
+### `rugscan proxy`
+
+`rugscan proxy` runs a local JSON-RPC proxy for wallets. It intercepts send-transaction calls, runs `rugscan scan`, and blocks or prompts based on risk.
+
+```bash
+rugscan proxy --upstream https://... --chain ethereum
+rugscan proxy --wallet
+rugscan proxy --record-dir ./rugscan-recordings
+```
+
+Notes:
+- `--wallet` enables a faster provider mix (keeps simulation, skips slower upstream calls).
+- `--record-dir` saves a per-tx bundle (JSON-RPC request, parsed calldata, AnalyzeResponse, rendered output) under the given directory.
+- For allowlists, see "Proxy Allowlist (v1)" below.
+
+### Shared options (selected)
+
+- `--chain, -c` Target chain (default: ethereum): `ethereum | base | arbitrum | optimism | polygon`
+- `--ai` Enable AI risk analysis (requires API key)
+- `--model` Override AI model or force provider (e.g. `openai:gpt-4o`)
+- `--token/--spender/--amount/--expected` Approval analysis inputs
 
 ## Output
 
@@ -88,9 +127,14 @@ Options:
 ```
 
 **Exit codes:**
-- `0` — OK (safe to interact)
-- `1` — CAUTION/WARNING (proceed with awareness)
-- `2` — DANGER (high risk)
+- `rugscan analyze` / `rugscan approval`:
+  - `0` — OK (safe to interact)
+  - `1` — CAUTION/WARNING (proceed with awareness)
+  - `2` — DANGER (high risk)
+- `rugscan scan`:
+  - `0` — recommendation is below `--fail-on`
+  - `2` — recommendation is >= `--fail-on` (default: `warning`)
+  - `1` — invalid flags or runtime error
 
 ## Environment Variables
 
@@ -152,7 +196,9 @@ Config:
 Notes:
 - `allowlist.to`: allowlisted transaction targets (`tx.to`).
 - `allowlist.spenders`: allowlisted approval spenders/operators (from simulation + decoded calldata when available).
-- If a transaction is blocked, the JSON-RPC error includes details under `error.data.allowlist` (violations + any unknowns).
+- If a transaction is blocked, the JSON-RPC error uses code `4001` and includes details under `error.data`:
+  - `error.data.recommendation` + `error.data.simulationSuccess`
+  - `error.data.allowlist` (when enabled): violations + `unknownApprovalSpenders`
 
 ## Library Usage
 
@@ -272,8 +318,8 @@ When `--ai` is enabled, rugscan sends contract data to an LLM for deeper analysi
 ## Development
 
 GitHub Actions runs two tiers of CI:
-- **Tier 1 (PR gating)**: default `bun test` (skips live-network + fork/anvil e2e suites)
-- **Tier 2 (comprehensive)**: enables live-network + fork/anvil e2e suites
+- **Tier 1 (PR gating)**: `.github/workflows/ci.yml` runs default `bun test` (skips live-network + fork/anvil e2e suites)
+- **Tier 2 (comprehensive)**: `.github/workflows/ci-comprehensive.yml` runs nightly + manual (`workflow_dispatch`) with `RUGSCAN_LIVE_TESTS=1` and `RUGSCAN_FORK_E2E=1`
 
 ```bash
 # Install deps
