@@ -15,8 +15,17 @@ Pre-transaction security analysis for EVM contracts. Know what you're signing be
 
 ## Install
 
+> Note: rugscan is not published to npm yet.
+
+For now, run from source:
+
 ```bash
-bun add rugscan
+git clone https://github.com/marcomariscal/rugscan
+cd rugscan
+bun install
+
+# examples below use `rugscan ...`; when running from source, replace with:
+# bun run src/cli/index.ts ...
 ```
 
 ## Quick Start
@@ -63,6 +72,7 @@ Flags:
   - `-` to read from stdin
 - `--to/--from/--value` — when `--calldata` is raw hex (or when providing tx fields directly)
 - `--no-sim` — disable Anvil simulation
+  - By default, rugscan will try to run an **Anvil fork simulation** for transaction inputs. Simulation success + decoded intent is the primary signal when available.
 - `--fail-on <caution|warning|danger>` — set exit threshold (default: `warning`)
 - `--output <path|->` (default: `-`)
 - `--quiet` — suppress progress/logging
@@ -126,11 +136,11 @@ Notes:
 ╰─────────────────────────────────────────────────────────────────╯
 ```
 
-**Exit codes:**
+**Exit codes (not a guarantee):**
 - `rugscan analyze` / `rugscan approval`:
-  - `0` — OK (safe to interact)
-  - `1` — CAUTION/WARNING (proceed with awareness)
-  - `2` — DANGER (high risk)
+  - `0` — OK per configured checks (no findings at/above the built-in thresholds)
+  - `1` — CAUTION/WARNING
+  - `2` — DANGER
 - `rugscan scan`:
   - `0` — recommendation is below `--fail-on`
   - `2` — recommendation is >= `--fail-on` (default: `warning`)
