@@ -134,6 +134,26 @@ Create `./rugscan.config.json` or `~/.config/rugscan/config.json`:
 
 Override location with `RUGSCAN_CONFIG=/path/to/config.json`.
 
+### Proxy Allowlist (v1)
+
+When running `rugscan proxy`, you can optionally enforce a local allowlist so transactions are blocked unless they only touch trusted endpoints.
+
+Config:
+
+```json
+{
+  "allowlist": {
+    "to": ["0x..."],
+    "spenders": ["0x..."]
+  }
+}
+```
+
+Notes:
+- `allowlist.to`: allowlisted transaction targets (`tx.to`).
+- `allowlist.spenders`: allowlisted approval spenders/operators (from simulation + decoded calldata when available).
+- If a transaction is blocked, the JSON-RPC error includes details under `error.data.allowlist` (violations + any unknowns).
+
 ## Library Usage
 
 ```typescript

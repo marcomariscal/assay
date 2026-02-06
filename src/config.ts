@@ -256,7 +256,8 @@ function parseAddressArray(value: unknown): string[] | undefined {
 		if (!isAddress(trimmed)) continue;
 		parsed.push(trimmed.toLowerCase());
 	}
-	return parsed;
+	// Guard: avoid treating empty/all-invalid arrays as an enabled deny-all allowlist.
+	return parsed.length > 0 ? parsed : undefined;
 }
 
 function isAddress(value: string): boolean {

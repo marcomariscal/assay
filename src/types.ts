@@ -204,6 +204,11 @@ export interface BalanceSimulationResult {
 // Provider interfaces
 export interface VerificationResult {
 	verified: boolean;
+	/**
+	 * Whether the verification status is known. If false, verification providers were unavailable
+	 * and the contract should be treated as "unknown verification" (not "unverified").
+	 */
+	verificationKnown: boolean;
 	name?: string;
 	source?: string;
 	abi?: Abi;

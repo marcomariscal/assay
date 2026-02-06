@@ -162,6 +162,27 @@ interface AllowlistEvaluation {
 	unknownApprovalSpenders: boolean;
 }
 
+function shortenHexAddress(value: string): string {
+	const v = value.toLowerCase();
+	if (!v.startsWith("0x") || v.length !== 42) return value;
+	return `${v.slice(0, 6)}…${v.slice(-4)}`;
+}
+
+function formatAllowlistSummary(allowlist: AllowlistEvaluation): string {
+	if (!allowlist.enabled) return "";
+	const parts: string[] = [];
+	if (allowlist.violations.length > 0) {
+		const v = allowlist.violations
+			.map((violation) => `${violation.kind}:${shortenHexAddress(violation.address)}`)
+			.join(", ");
+		parts.push(`violations=${v}`);
+	}
+	if (allowlist.unknownApprovalSpenders) {
+		parts.push("unknownApprovalSpenders");
+	}
+	return parts.length > 0 ? `, allowlist(${parts.join("; ")})` : ", allowlist(ok)";
+}
+
 function evaluateAllowlist(options: {
 	calldata: CalldataInput;
 	config: Config;
@@ -804,6 +825,19 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 				}
 
 				const allowlist = evaluateAllowlist({ calldata, config: scanConfig, outcome });
+				if (!quiet && allowlist.enabled) {
+					if (allowlist.violations.length > 0) {
+						process.stdout.write(
+							`Allowlist violations: ${allowlist.violations
+								.map((v) => `${v.kind}:${shortenHexAddress(v.address)} (${v.source})`)
+								.join(", ")}\n`,
+						);
+					} else if (allowlist.unknownApprovalSpenders) {
+						process.stdout.write(
+							"Allowlist note: approval spender/operator could not be determined (simulation failed)\n",
+						);
+					}
+				}
 				if (allowlist.violations.length > 0) {
 					outcome = {
 						...outcome,
@@ -841,19 +875,20 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 				}
 
 				if (action === "prompt") {
+					const allowlistSummary = formatAllowlistSummary(allowlist);
 					if (isNotification) {
 						// No response channel. Default to blocking unless the user explicitly forwards.
 						const ok = await promptYesNo(
 							`Forward transaction anyway? (recommendation=${outcome.recommendation}, simulation=${
 								outcome.simulationSuccess ? "ok" : "failed"
-							}) [y/N] `,
+							}${allowlistSummary}) [y/N] `,
 						);
 						if (!ok) return null;
 					} else {
 						const ok = await promptYesNo(
 							`Forward transaction anyway? (recommendation=${outcome.recommendation}, simulation=${
 								outcome.simulationSuccess ? "ok" : "failed"
-							}) [y/N] `,
+							}${allowlistSummary}) [y/N] `,
 						);
 						if (!ok) {
 							return jsonRpcError(

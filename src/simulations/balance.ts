@@ -125,7 +125,70 @@ export async function simulateBalance(
 	}
 }
 
+function resolveAnvilRpcUrlCandidates(chain: Chain, config?: Config): string[] {
+	const explicit = config?.simulation?.rpcUrl;
+	if (explicit) return [explicit];
+
+	const configured = config?.rpcUrls?.[chain];
+	if (configured) return [configured];
+
+	const defaultUrl = getChainConfig(chain).rpcUrl;
+	if (chain !== "ethereum") return [defaultUrl];
+
+	const candidates = [
+		"https://eth.drpc.org",
+		"https://ethereum.publicnode.com",
+		"https://eth.llamarpc.com",
+		defaultUrl,
+	];
+
+	const seen = new Set<string>();
+	const unique: string[] = [];
+	for (const url of candidates) {
+		if (seen.has(url)) continue;
+		seen.add(url);
+		unique.push(url);
+	}
+	return unique;
+}
+
+function withSimulationRpcUrl(config: Config | undefined, rpcUrl: string): Config {
+	return {
+		...config,
+		simulation: {
+			...config?.simulation,
+			rpcUrl,
+		},
+	};
+}
+
 async function simulateWithAnvil(
+	tx: CalldataInput,
+	chain: Chain,
+	config?: Config,
+	timings?: TimingStore,
+): Promise<BalanceSimulationResult> {
+	const rpcUrls = resolveAnvilRpcUrlCandidates(chain, config);
+
+	let lastError: unknown;
+	for (const rpcUrl of rpcUrls) {
+		const attemptConfig = withSimulationRpcUrl(config, rpcUrl);
+		for (let attempt = 0; attempt < 2; attempt += 1) {
+			try {
+				return await simulateWithAnvilOnce(tx, chain, attemptConfig, timings);
+			} catch (error) {
+				lastError = error;
+			}
+		}
+	}
+
+	if (lastError instanceof Error) {
+		throw lastError;
+	}
+	throw new Error("Anvil simulation failed");
+}
+
+async function simulateWithAnvilOnce(
 	tx: CalldataInput,
 	chain: Chain,
 	config?: Config,

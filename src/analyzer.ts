@@ -67,6 +67,7 @@ export async function analyze(
 
 	// 2. Check verification - Sourcify first (free), then Etherscan
 	let verified = false;
+	let verificationKnown = false;
 	let contractName: string | undefined;
 	let source: string | undefined;
 	let phishingLabels: string[] = [];
@@ -77,12 +78,15 @@ export async function analyze(
 
 	report?.({ provider: "Sourcify", status: "start" });
 	const sourcifyResult = await sourcify.checkVerification(addr, chain);
+	verificationKnown = sourcifyResult.verificationKnown;
 	report?.({
 		provider: "Sourcify",
 		status: "success",
 		message: sourcifyResult.verified
 			? `verified${sourcifyResult.name ? `: ${sourcifyResult.name}` : ""}`
-			: "unverified",
+			: sourcifyResult.verificationKnown
+				? "unverified"
+				: "unknown",
 	});
 	if (sourcifyResult.verified) {
 		verified = true;
@@ -121,6 +125,7 @@ export async function analyze(
 			message: etherscanData ? "metadata fetched" : "no data",
 		});
 		if (etherscanData) {
+			verificationKnown = true;
 			// Use Etherscan verification if Sourcify didn't have it
 			if (!verified && etherscanData.verified) {
 				verified = true;
@@ -206,11 +211,19 @@ export async function analyze(
 
 	// Build findings
 	if (!verified) {
-		findings.push({
-			level: "danger",
-			code: "UNVERIFIED",
-			message: "Source code not verified - cannot analyze contract logic",
-		});
+		if (verificationKnown) {
+			findings.push({
+				level: "danger",
+				code: "UNVERIFIED",
+				message: "Source code not verified - cannot analyze contract logic",
+			});
+		} else {
+			findings.push({
+				level: "info",
+				code: "UNKNOWN_SECURITY",
+				message: "Verification status unknown (verification providers unavailable)",
+			});
+		}
 	} else {
 		findings.push({
 			level: "safe",
@@ -317,7 +330,7 @@ export async function analyze(
 	let confidenceLevel: Confidence["level"] = "high";
 	if (!verified) {
 		confidenceLevel = "low";
-		confidenceReasons.push("source not verified");
+		confidenceReasons.push(verificationKnown ? "source not verified" : "verification unknown");
 	} else if (!etherscanKey) {
 		confidenceLevel = "medium";
 	}
