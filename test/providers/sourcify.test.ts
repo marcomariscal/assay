@@ -9,6 +9,7 @@ describe("sourcify", () => {
 		);
 
 		expect(result.verified).toBe(true);
+		expect(result.verificationKnown).toBe(true);
 		expect(result.source).toBeDefined();
 	});
 
@@ -19,6 +20,7 @@ describe("sourcify", () => {
 		);
 
 		expect(result.verified).toBe(false);
+		expect(result.verificationKnown).toBe(true);
 		expect(result.source).toBeUndefined();
 	});
 });

@@ -210,13 +210,15 @@ export async function analyze(
 	});
 	if (sourcifyStep.status === "ok") {
 		const sourcifyResult = sourcifyStep.value;
-		verificationKnown = true;
+		verificationKnown = sourcifyResult.verificationKnown;
 		report?.({
 			provider: "Sourcify",
 			status: "success",
 			message: sourcifyResult.verified
 				? `verified${sourcifyResult.name ? `: ${sourcifyResult.name}` : ""}`
-				: "unverified",
+				: sourcifyResult.verificationKnown
+					? "unverified"
+					: "unknown",
 		});
 		if (sourcifyResult.verified) {
 			verified = true;
@@ -435,8 +437,8 @@ export async function analyze(
 	} else {
 		findings.push({
 			level: "info",
-			code: "UNVERIFIED",
-			message: "Unable to confirm source verification (provider skipped/timed out)",
+			code: "UNKNOWN_SECURITY",
+			message: "Verification status unknown (providers skipped/timed out)",
 		});
 	}
 

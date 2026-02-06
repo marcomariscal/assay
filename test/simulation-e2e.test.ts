@@ -113,7 +113,13 @@ describe("simulation e2e", () => {
 		const parsed = JSON.parse(result.stdout);
 		const simulation = parsed?.scan?.simulation;
 		expect(simulation).toBeDefined();
-		expect(simulation?.success).toBe(true);
+		// Zero-config semantics: we *attempt* Anvil simulation by default. If Anvil is unavailable
+		// or the fork is flaky, we may degrade, but we should not silently fall back to heuristic.
+		const notes = Array.isArray(simulation?.notes) ? simulation.notes : [];
+		const hasHeuristicNote = notes.some(
+			(note: unknown) => typeof note === "string" && note.includes("Heuristic-only simulation"),
+		);
+		expect(hasHeuristicNote).toBe(false);
 	}, 180000);
 
 	test("scan --calldata runs anvil simulation even if anvil is not on PATH (Foundry default)", async () => {

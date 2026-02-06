@@ -7,16 +7,7 @@ import type { ProviderRequestOptions } from "./request-options";
 const SOURCIFY_API = "https://sourcify.dev/server";
 const SOURCIFY_CACHE = new Map<string, Promise<SourcifyResult> | SourcifyResult>();
 
-interface SourcifyFile {
-	name: string;
-	path: string;
-	content: string;
-}
-
-interface SourcifyAnyResponse {
-	status: "full" | "partial";
-	files: SourcifyFile[];
-}
+// Sourcify response is treated as untyped JSON; we validate fields at runtime.
 
 interface SourcifyResult extends VerificationResult {
 	abi?: Abi;
@@ -30,6 +21,7 @@ export async function checkVerification(
 	const result = await getSourcifyResult(address, chain, options);
 	return {
 		verified: result.verified,
+		verificationKnown: result.verificationKnown,
 		name: result.name,
 		source: result.source,
 		abi: result.abi,
@@ -67,12 +59,17 @@ async function getSourcifyResult(
 	}
 	const fetchPromise = fetchSourcifyResult(address, chainId, options);
 	SOURCIFY_CACHE.set(key, fetchPromise);
+
 	try {
 		const resolved = await fetchPromise;
-		SOURCIFY_CACHE.set(key, resolved);
+		// Cache only when verification status is known.
+		if (resolved.verificationKnown) {
+			SOURCIFY_CACHE.set(key, resolved);
+		} else {
+			SOURCIFY_CACHE.delete(key);
+		}
 		return resolved;
 	} catch (error) {
-		// Don't poison the cache with transient failures.
 		SOURCIFY_CACHE.delete(key);
 		throw error;
 	}
@@ -85,49 +82,72 @@ async function fetchSourcifyResult(
 ): Promise<SourcifyResult> {
 	const url = `${SOURCIFY_API}/files/any/${chainId}/${address}`;
 
+	const timeoutMs = options?.timeoutMs ?? 10_000;
+
+	let response: Response;
 	try {
-		const response = await fetchWithTimeout(url, { signal: options?.signal }, options?.timeoutMs);
-
-		if (!response.ok) {
-			// 404 means the contract is not verified on Sourcify.
-			if (response.status === 404) {
-				return { verified: false };
-			}
-			// For timeboxed/analyzer calls, treat non-404 failures as "unknown" by throwing.
-			if (options?.signal || options?.timeoutMs) {
-				throw new Error(`sourcify http ${response.status}`);
-			}
-			return { verified: false };
-		}
-
-		const data: SourcifyAnyResponse = await response.json();
-		const files = data.files;
-
-		if (!files || files.length === 0) {
-			return { verified: false };
-		}
-
-		const metadata = files.find((f) => f.name === "metadata.json");
-		const parsedMetadata = metadata ? parseMetadata(metadata.content) : undefined;
-
-		const sourceFile = files.find(
-			(f) => f.name.endsWith(".sol") && !f.path.includes("node_modules"),
-		);
-
-		return {
-			verified: true,
-			name: parsedMetadata?.name,
-			source: sourceFile?.content,
-			abi: parsedMetadata?.abi,
-		};
+		response = await fetchWithTimeout(url, { signal: options?.signal }, timeoutMs);
 	} catch (error) {
-		// When the analyzer passes request options, treat network/timeout errors as unknown.
-		// This prevents transient failures from being interpreted as an "unverified" contract.
-		if (options?.signal || options?.timeoutMs) {
+		// Preserve abort/timeout semantics for timeboxed analyzer calls.
+		if (options?.signal?.aborted) {
 			throw error;
 		}
-		return { verified: false };
+		return { verified: false, verificationKnown: false };
 	}
+
+	if (!response.ok) {
+		// 404 = contract not present on Sourcify (treat as truly unverified).
+		if (response.status === 404) {
+			return { verified: false, verificationKnown: true };
+		}
+		// Other non-2xx can be transient/network/provider errors.
+		return { verified: false, verificationKnown: false };
+	}
+
+	let data: unknown;
+	try {
+		data = await response.json();
+	} catch {
+		return { verified: false, verificationKnown: false };
+	}
+
+	if (!isRecord(data)) {
+		return { verified: false, verificationKnown: false };
+	}
+
+	const filesRaw = data.files;
+	const files = Array.isArray(filesRaw) ? filesRaw : null;
+	if (!files) {
+		return { verified: false, verificationKnown: false };
+	}
+
+	if (files.length === 0) {
+		return { verified: false, verificationKnown: true };
+	}
+
+	const metadata = files.find((file: unknown) => {
+		if (!isRecord(file)) return false;
+		return file.name === "metadata.json";
+	});
+	const parsedMetadata =
+		isRecord(metadata) && isNonEmptyString(metadata.content)
+			? parseMetadata(metadata.content)
+			: undefined;
+
+	const sourceFile = files.find((file: unknown) => {
+		if (!isRecord(file)) return false;
+		if (!isNonEmptyString(file.name) || !isNonEmptyString(file.path)) return false;
+		return file.name.endsWith(".sol") && !file.path.includes("node_modules");
+	});
+
+	return {
+		verified: true,
+		verificationKnown: true,
+		name: parsedMetadata?.name,
+		source:
+			isRecord(sourceFile) && isNonEmptyString(sourceFile.content) ? sourceFile.content : undefined,
+		abi: parsedMetadata?.abi,
+	};
 }
 
 function parseMetadata(content: string): { name?: string; abi?: Abi } | undefined {
