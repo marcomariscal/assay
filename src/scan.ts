@@ -112,7 +112,7 @@ export async function scanWithAnalysis(
 		options?.config,
 		options?.progress,
 		options?.timings,
-		{ offline: options?.offline },
+		{ offline: options?.offline, mode: analyzeOptions?.mode },
 	);
 	const withSimulation = simulation ? { ...mergedAnalysis, simulation } : mergedAnalysis;
 	const finalAnalysis = applySimulationVerdict(normalizedInput, withSimulation);
@@ -236,7 +236,7 @@ async function runBalanceSimulation(
 	config: Config | undefined,
 	progress: ScanProgress | undefined,
 	timings: TimingStore | undefined,
-	options?: { offline?: boolean },
+	options?: { offline?: boolean; mode?: "default" | "wallet" },
 ): Promise<BalanceSimulationResult | undefined> {
 	if (!input.calldata) return undefined;
 
@@ -249,6 +249,7 @@ async function runBalanceSimulation(
 
 	const result = await simulateBalance(input.calldata, chain, config, timings, {
 		offline: options?.offline,
+		mode: options?.mode,
 	});
 	progress?.({
 		provider: "Simulation",
