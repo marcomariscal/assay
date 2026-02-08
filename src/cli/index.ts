@@ -116,15 +116,15 @@ function assertNoUnknownOptions(command: string, args: string[]) {
 
 function printUsage() {
 	console.log(`
-rugscan - Pre-transaction security analysis for EVM contracts
+assay - Pre-transaction security analysis for EVM contracts
 
 Usage:
-  rugscan analyze <address> [--chain <chain>] [--offline]
-  rugscan scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>] [--offline]
-  rugscan safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline] [--format json] [--output <path|->]
-  rugscan approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>] [--offline]
-  rugscan proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--offline] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
-  rugscan mcp
+  assay analyze <address> [--chain <chain>] [--offline|--rpc-only]
+  assay scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>] [--offline|--rpc-only]
+  assay safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline|--rpc-only] [--format json] [--output <path|->]
+  assay approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>] [--offline|--rpc-only]
+  assay proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--offline|--rpc-only] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
+  assay mcp
 
 Options:
   --chain, -c    Chain to analyze on (default: ethereum)
@@ -666,7 +666,7 @@ async function runProxy(args: string[]) {
 async function runMcp(args: string[]) {
 	if (args.includes("--help") || args.includes("-h")) {
 		console.log(
-			"rugscan mcp - MCP server over stdio (Model Context Protocol)\n\nUsage:\n  rugscan mcp\n\nNotes:\n  - Communicates over stdin/stdout using JSON-RPC framing (Content-Length).\n  - Exposes Rugscan analysis as MCP tools.\n",
+			"assay mcp - MCP server over stdio (Model Context Protocol)\n\nUsage:\n  assay mcp\n\nNotes:\n  - Communicates over stdin/stdout using JSON-RPC framing (Content-Length).\n  - Exposes Rugscan analysis as MCP tools.\n",
 		);
 		process.exit(0);
 	}

@@ -29,10 +29,14 @@ export interface ProxyOptions {
 	config?: Config;
 	once?: boolean;
 	/**
-	 * Strict offline mode: only upstreamUrl JSON-RPC is allowed.
-	 * All other HTTP providers are disabled.
+	 * Strict offline mode: allow only explicitly configured JSON-RPC URL(s).
+	 *
+	 * Note: localhost fetches (ex: local Anvil) are allowed by default.
 	 */
 	offline?: boolean;
+	// When once=true, optionally terminate the process after handling a single request.
+	// Default: true (used by CLI); tests may set false.
+	exitOnOnce?: boolean;
 	quiet?: boolean;
 	recordDir?: string;
 	scanFn?: (
@@ -660,6 +664,7 @@ async function defaultScanFn(
 export function createJsonRpcProxyServer(options: ProxyOptions) {
 	const policy = defaultPolicy(options.policy);
 	const quiet = options.quiet ?? false;
+	const exitOnOnce = options.exitOnOnce ?? true;
 	const recordDir =
 		typeof options.recordDir === "string" && options.recordDir.trim().length > 0
 			? options.recordDir.trim()
@@ -979,10 +984,13 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 
 			handled += 1;
 			if (options.once && handled >= 1) {
-				queueMicrotask(() => {
+				// Allow the response to flush before stopping the server.
+				setTimeout(() => {
 					server.stop(true);
-					process.exit(0);
-				});
+					if (exitOnOnce) {
+						process.exit(0);
+					}
+				}, 0);
 			}
 
 			return jsonResponse(responsePayload, 200);
