@@ -1,12 +1,4 @@
-import {
-	type Address,
-	createPublicClient,
-	decodeAbiParameters,
-	type Hex,
-	hexToString,
-	http,
-	isAddress,
-} from "viem";
+import { type Address, decodeAbiParameters, type Hex, hexToString, isAddress } from "viem";
 import { decodeKnownCalldata } from "../analyzers/calldata/decoder";
 import { isRecord, toBigInt } from "../analyzers/calldata/utils";
 import { getChainConfig } from "../chains";
@@ -22,10 +14,14 @@ import type {
 	Config,
 } from "../types";
 import { AnvilUnavailableError, getAnvilClient } from "./anvil";
+import { buildWalletFastErc20Changes, selectWalletFastErc20Tokens } from "./delta-engine";
 import { type ParsedTransfer, parseReceiptLogs } from "./logs";
 import { buildSimulationNotRun } from "./verdict";
 
 const HIGH_BALANCE = 10n ** 22n;
+
+const WALLET_FAST_BUDGET_MS = 5000;
+const WALLET_FAST_MAX_ERC20_TOKENS = 12;
 
 const CURATED_TOKENS: Record<Chain, Address[]> = {
 	ethereum: ["0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"],
@@ -75,12 +71,17 @@ const ERC20_DECIMALS_ABI = [
 	},
 ];
 
+type SimulationMode = "default" | "wallet";
+
+type AnvilInstance = Awaited<ReturnType<typeof getAnvilClient>>;
+type AnvilClient = AnvilInstance["client"];
+
 export async function simulateBalance(
 	tx: CalldataInput,
 	chain: Chain,
 	config?: Config,
 	timings?: TimingStore,
-	options?: { offline?: boolean },
+	options?: { offline?: boolean; mode?: SimulationMode; budgetMs?: number },
 ): Promise<BalanceSimulationResult> {
 	const backend = config?.simulation?.backend ?? "anvil";
 	const offline = options?.offline ?? false;
@@ -109,7 +110,11 @@ export async function simulateBalance(
 	}
 
 	try {
-		return await simulateWithAnvil(tx, chain, config, timings, { offline });
+		return await simulateWithAnvil(tx, chain, config, timings, {
+			offline,
+			mode: options?.mode,
+			budgetMs: options?.budgetMs,
+		});
 	} catch (error) {
 		if (error instanceof AnvilUnavailableError) {
 			const notRun = buildSimulationNotRun(tx);
@@ -177,7 +182,7 @@ async function simulateWithAnvil(
 	chain: Chain,
 	config?: Config,
 	timings?: TimingStore,
-	options?: { offline?: boolean },
+	options?: { offline?: boolean; mode?: SimulationMode; budgetMs?: number },
 ): Promise<BalanceSimulationResult> {
 	const offline = options?.offline ?? false;
 	const rpcUrls = resolveAnvilRpcUrlCandidates(chain, config, { offline });
@@ -187,7 +192,11 @@ async function simulateWithAnvil(
 		const attemptConfig = withSimulationRpcUrl(config, rpcUrl);
 		for (let attempt = 0; attempt < 2; attempt += 1) {
 			try {
-				return await simulateWithAnvilOnce(tx, chain, attemptConfig, timings, { offline });
+				return await simulateWithAnvilOnce(tx, chain, attemptConfig, timings, {
+					offline,
+					mode: options?.mode,
+					budgetMs: options?.budgetMs,
+				});
 			} catch (error) {
 				lastError = error;
 			}
@@ -205,10 +214,12 @@ async function simulateWithAnvilOnce(
 	chain: Chain,
 	config?: Config,
 	timings?: TimingStore,
-	options?: { offline?: boolean },
+	options?: { offline?: boolean; mode?: SimulationMode; budgetMs?: number },
 ): Promise<BalanceSimulationResult> {
 	const offline = options?.offline ?? false;
+	const getClientStarted = nowMs();
 	const instance = await getAnvilClient(chain, config, { offline });
+	timings?.add("anvil.getClient", nowMs() - getClientStarted);
 	const client = instance.client;
 	const from = tx.from && isAddress(tx.from) ? tx.from : null;
 	const to = tx.to && isAddress(tx.to) ? tx.to : null;
@@ -238,15 +249,31 @@ async function simulateWithAnvilOnce(
 			await client.impersonateAccount({ address: from });
 			await client.setBalance({ address: from, value: HIGH_BALANCE });
 
-			const isContractAccount = await checkContractAccount(from, chain, config, {
-				offline,
-			});
+			const contractCheckStarted = nowMs();
+			const isContractAccount = await checkContractAccountOnFork(client, from);
+			timings?.add("simulation.senderContractCheck", nowMs() - contractCheckStarted);
 			if (isContractAccount) {
 				confidence = "low";
 				notes.push("Sender is a contract account; simulation is best-effort.");
 			}
 
 			const txValue = parseValue(tx.value) ?? 0n;
+			if ((options?.mode ?? "default") === "wallet") {
+				const budgetMs = options?.budgetMs ?? WALLET_FAST_BUDGET_MS;
+				return await simulateWithAnvilWalletFast({
+					tx,
+					client,
+					from,
+					to,
+					data,
+					txValue,
+					timings,
+					notes,
+					confidence,
+					budgetMs,
+				});
+			}
+
 			const tokenCandidates = new Set<Address>();
 			for (const token of curatedTokens(chain)) {
 				tokenCandidates.add(token);
@@ -385,6 +412,206 @@ async function simulateWithAnvilOnce(
 			await client.stopImpersonatingAccount({ address: from }).catch(() => undefined);
 		}
 	});
+}
+
+interface WalletFastSimulationOptions {
+	tx: CalldataInput;
+	client: AnvilClient;
+	from: Address;
+	to: Address;
+	data: Hex;
+	txValue: bigint;
+	timings?: TimingStore;
+	notes: string[];
+	confidence: ConfidenceLevel;
+	budgetMs: number;
+}
+
+async function simulateWithAnvilWalletFast(
+	options: WalletFastSimulationOptions,
+): Promise<BalanceSimulationResult> {
+	const startedAt = nowMs();
+	let confidence = options.confidence;
+
+	const nativeBefore = await options.client.getBalance({ address: options.from });
+
+	type Receipt = Awaited<ReturnType<AnvilClient["waitForTransactionReceipt"]>>;
+	let receipt: Receipt | null = null;
+	try {
+		const hash = await options.client.sendUnsignedTransaction({
+			from: options.from,
+			to: options.to,
+			data: options.data,
+			value: options.txValue,
+		});
+		receipt = await options.client.waitForTransactionReceipt({ hash });
+	} catch (error) {
+		const reason =
+			(await attemptRevertReason(options.client, {
+				from: options.from,
+				to: options.to,
+				data: options.data,
+				value: options.txValue,
+			})) ?? (error instanceof Error ? error.message : "Simulation failed");
+		return simulateFailure(reason, options.notes, confidence, buildFailureHints(options.tx));
+	}
+
+	if (!receipt || receipt.status !== "success") {
+		const reason =
+			(await attemptRevertReason(options.client, {
+				from: options.from,
+				to: options.to,
+				data: options.data,
+				value: options.txValue,
+				blockNumber: receipt?.blockNumber,
+			})) ?? "Transaction reverted";
+		return simulateFailure(reason, options.notes, confidence, buildFailureHints(options.tx));
+	}
+
+	const parseLogsStarted = nowMs();
+	const parsedLogs = await parseReceiptLogs(receipt.logs, options.client);
+	options.timings?.add("simulation.walletFast.parseLogs", nowMs() - parseLogsStarted);
+	options.notes.push(...parsedLogs.notes);
+	confidence = minConfidence(confidence, parsedLogs.confidence);
+
+	const selectTokensStarted = nowMs();
+	const selected = selectWalletFastErc20Tokens({
+		actor: options.from,
+		transfers: parsedLogs.transfers,
+		maxTokens: WALLET_FAST_MAX_ERC20_TOKENS,
+	});
+	options.timings?.add("simulation.walletFast.selectTokens", nowMs() - selectTokensStarted);
+	if (selected.truncated) {
+		options.notes.push(
+			`Wallet-fast token set truncated to ${WALLET_FAST_MAX_ERC20_TOKENS} ERC-20 contracts.`,
+		);
+		confidence = minConfidence(confidence, "medium");
+	}
+
+	const tokenSet = new Set<Address>(selected.tokens);
+	const preBalances = new Map<Address, bigint>();
+	const postBalances = new Map<Address, bigint>();
+
+	if (tokenSet.size > 0) {
+		const previousBlock = receipt.blockNumber > 0n ? receipt.blockNumber - 1n : undefined;
+		if (previousBlock !== undefined) {
+			const preBalancesStarted = nowMs();
+			const loadedPreBalances = await readTokenBalances(
+				options.client,
+				tokenSet,
+				options.from,
+				options.notes,
+				previousBlock,
+			);
+			options.timings?.add(
+				"simulation.walletFast.readTokenBalances.before",
+				nowMs() - preBalancesStarted,
+			);
+			for (const [token, balance] of loadedPreBalances.entries()) {
+				preBalances.set(token, balance);
+			}
+		} else {
+			options.notes.push(
+				"Unable to read pre-transaction balances for wallet-fast token set (missing previous block).",
+			);
+			confidence = minConfidence(confidence, "medium");
+		}
+
+		const postBalancesStarted = nowMs();
+		const loadedPostBalances = await readTokenBalances(
+			options.client,
+			tokenSet,
+			options.from,
+			options.notes,
+		);
+		options.timings?.add(
+			"simulation.walletFast.readTokenBalances.after",
+			nowMs() - postBalancesStarted,
+		);
+		for (const [token, balance] of loadedPostBalances.entries()) {
+			postBalances.set(token, balance);
+		}
+	}
+
+	const assetChanges = buildWalletFastErc20Changes({
+		actor: options.from,
+		transfers: parsedLogs.transfers,
+		tokens: selected.tokens,
+		before: preBalances,
+		after: postBalances,
+	});
+	assetChanges.push(...buildNftChanges(parsedLogs.transfers, options.from));
+
+	const approvals = parsedLogs.approvals
+		.filter((approval) => approval.owner.toLowerCase() === options.from.toLowerCase())
+		.map<ApprovalChange>((approval) => ({
+			standard: approval.standard,
+			token: approval.token,
+			owner: approval.owner,
+			spender: approval.spender,
+			amount: approval.amount,
+			tokenId: approval.tokenId,
+			scope: approval.scope,
+			approved: approval.approved,
+		}));
+
+	const gasCost = receipt.gasUsed * receipt.effectiveGasPrice;
+	const nativeAfter = await options.client.getBalance({ address: options.from });
+	const nativeDelta = nativeAfter - nativeBefore;
+	const nativeDiff = nativeDelta + gasCost;
+
+	const approvalTokenChanges: AssetChange[] = approvals
+		.filter((approval) => approval.standard === "erc20" || approval.standard === "permit2")
+		.map((approval) => ({
+			assetType: "erc20",
+			address: approval.token,
+			direction: "in",
+		}));
+
+	const metadataSkipped = nowMs() - startedAt >= options.budgetMs;
+	let metadata = new Map<Address, { symbol?: string; decimals?: number }>();
+	if (!metadataSkipped) {
+		const metadataStarted = nowMs();
+		metadata = await readTokenMetadata(
+			options.client,
+			[...assetChanges, ...approvalTokenChanges],
+			options.notes,
+		);
+		options.timings?.add("simulation.walletFast.metadata", nowMs() - metadataStarted);
+	} else {
+		options.notes.push(
+			`Wallet-fast budget (${options.budgetMs}ms) reached; skipped ERC-20 metadata lookups.`,
+		);
+		confidence = minConfidence(confidence, "medium");
+	}
+
+	if (nowMs() - startedAt > options.budgetMs) {
+		options.notes.push(`Wallet-fast simulation exceeded ${options.budgetMs}ms budget.`);
+		confidence = minConfidence(confidence, "medium");
+	}
+
+	const enrichedChanges = applyTokenMetadata(assetChanges, metadata);
+	const enrichedApprovals = applyApprovalMetadata(approvals, metadata);
+
+	return {
+		success: true,
+		gasUsed: receipt.gasUsed,
+		effectiveGasPrice: receipt.effectiveGasPrice,
+		nativeDiff,
+		assetChanges: enrichedChanges,
+		approvals: enrichedApprovals,
+		confidence,
+		notes: options.notes,
+	};
+}
+
+async function checkContractAccountOnFork(client: AnvilClient, address: Address): Promise<boolean> {
+	try {
+		const code = await client.getCode({ address });
+		return typeof code === "string" && code !== "0x";
+	} catch {
+		return false;
+	}
 }
 
 function simulateFailure(
@@ -862,28 +1089,4 @@ function minConfidence(current: ConfidenceLevel, incoming: ConfidenceLevel): Con
 	if (current === "low" || incoming === "low") return "low";
 	if (current === "medium" || incoming === "medium") return "medium";
 	return "high";
-}
-
-async function checkContractAccount(
-	address: Address,
-	chain: Chain,
-	config?: Config,
-	options?: { offline?: boolean },
-): Promise<boolean> {
-	const offline = options?.offline ?? false;
-	const chainConfig = getChainConfig(chain);
-	const rpcUrl =
-		config?.simulation?.rpcUrl ??
-		config?.rpcUrls?.[chain] ??
-		(!offline ? chainConfig.rpcUrl : undefined);
-	if (!rpcUrl) return false;
-	const client = createPublicClient({
-		transport: http(rpcUrl),
-	});
-	try {
-		const code = await client.getCode({ address });
-		return Boolean(code && code !== "0x");
-	} catch {
-		return false;
-	}
 }
