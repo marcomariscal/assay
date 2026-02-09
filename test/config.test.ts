@@ -41,4 +41,23 @@ describe("config", () => {
 			await rm(tempPath, { force: true });
 		}
 	});
+
+	test("single ETHERSCAN_API_KEY is used for all supported chains", async () => {
+		const previous = {
+			ETHERSCAN_API_KEY: process.env.ETHERSCAN_API_KEY,
+		};
+
+		try {
+			setEnv("ETHERSCAN_API_KEY", "shared-key");
+
+			const config = await loadConfig();
+			expect(config.etherscanKeys?.ethereum).toBe("shared-key");
+			expect(config.etherscanKeys?.base).toBe("shared-key");
+			expect(config.etherscanKeys?.arbitrum).toBe("shared-key");
+			expect(config.etherscanKeys?.optimism).toBe("shared-key");
+			expect(config.etherscanKeys?.polygon).toBe("shared-key");
+		} finally {
+			setEnv("ETHERSCAN_API_KEY", previous.ETHERSCAN_API_KEY);
+		}
+	});
 });

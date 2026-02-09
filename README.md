@@ -156,15 +156,14 @@ Tools exposed:
 
 ### Block Explorer Keys (optional, improves coverage)
 
+Etherscan V2 supports a single API key across Etherscan-family chains.
+Set `ETHERSCAN_API_KEY` once for all supported chains:
+
 ```bash
 export ETHERSCAN_API_KEY=your_key
-export BASESCAN_API_KEY=your_key
-export ARBISCAN_API_KEY=your_key
-export OPTIMISM_API_KEY=your_key
-export POLYGONSCAN_API_KEY=your_key
 ```
 
-Without keys, analysis uses Sourcify only.
+Without a key, analysis uses Sourcify only.
 
 ### Config File (alternative to env vars)
 
@@ -238,10 +237,10 @@ console.log(txResponse.scan.simulation?.approvals.changes);
 | Chain | Explorer Key Env Var |
 |-------|---------------------|
 | Ethereum | `ETHERSCAN_API_KEY` |
-| Base | `BASESCAN_API_KEY` |
-| Arbitrum | `ARBISCAN_API_KEY` |
-| Optimism | `OPTIMISM_API_KEY` |
-| Polygon | `POLYGONSCAN_API_KEY` |
+| Base | `ETHERSCAN_API_KEY` |
+| Arbitrum | `ETHERSCAN_API_KEY` |
+| Optimism | `ETHERSCAN_API_KEY` |
+| Polygon | `ETHERSCAN_API_KEY` |
 
 ## Finding Codes
 
