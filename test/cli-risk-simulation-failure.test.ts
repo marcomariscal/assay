@@ -31,6 +31,7 @@ describe("cli risk label with simulation failures", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "low",
+				approvalsConfidence: "low",
 				notes: ["Simulation failed"],
 			},
 		};
@@ -64,6 +65,7 @@ describe("cli risk label with simulation failures", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "low",
+				approvalsConfidence: "high",
 				notes: [],
 			},
 		};
@@ -73,7 +75,40 @@ describe("cli risk label with simulation failures", () => {
 		expect(riskLine).toBeDefined();
 		expect(riskLine).not.toContain("SAFE");
 		expect(riskLine).toContain("LOW");
-		expect(output).toContain("No balance changes detected (low confidence)");
+		expect(output).toContain("💰 BALANCE CHANGES (low confidence)");
 		expect(output).toContain("- None detected");
+	});
+
+	test("approval fallback renders a single warning icon", () => {
+		const base = baseAnalysis();
+		const analysis: AnalysisResult = {
+			...base,
+			contract: {
+				...base.contract,
+				name: "USDC",
+			},
+			findings: [
+				{
+					level: "warning",
+					code: "UNLIMITED_APPROVAL",
+					message: "Unlimited token approval (max allowance)",
+					details: {
+						spender: "0x3333333333333333333333333333333333333333",
+					},
+				},
+			],
+			simulation: {
+				success: true,
+				assetChanges: [],
+				approvals: [],
+				confidence: "high",
+				approvalsConfidence: "high",
+				notes: [],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).toContain("⚠️ Allow 0x3333...3333 to spend UNLIMITED USDC");
+		expect(output).not.toContain("⚠️ ⚠️ Allow");
 	});
 });

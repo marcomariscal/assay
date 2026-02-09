@@ -85,6 +85,7 @@ function isBalanceSimulationResult(value: unknown): value is BalanceSimulationRe
 	if (!Array.isArray(value.assetChanges)) return false;
 	if (!Array.isArray(value.approvals)) return false;
 	if (!isConfidenceLevel(value.confidence)) return false;
+	if (!isConfidenceLevel(value.approvalsConfidence)) return false;
 	if (!Array.isArray(value.notes)) return false;
 	if (
 		"revertReason" in value &&
@@ -259,7 +260,8 @@ describe("north-star pre-sign UX (contract)", () => {
 				Boolean(context.hasCalldata) &&
 				(!analysis.simulation ||
 					!analysis.simulation.success ||
-					analysis.simulation.confidence !== "high");
+					analysis.simulation.confidence !== "high" ||
+					analysis.simulation.approvalsConfidence !== "high");
 			if (simulationUncertain) {
 				expect(normalizedActual).toContain("INCONCLUSIVE");
 			} else {

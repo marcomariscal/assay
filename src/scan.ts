@@ -291,13 +291,17 @@ function mapSimulation(simulation: BalanceSimulationResult): ScanBalanceSimulati
 			owner: approval.owner,
 			spender: approval.spender,
 			amount: approval.amount?.toString(),
+			previousAmount: approval.previousAmount?.toString(),
 			tokenId: approval.tokenId?.toString(),
 			scope: approval.scope,
 			approved: approval.approved,
+			previousApproved: approval.previousApproved,
+			previousSpender: approval.previousSpender,
 			symbol: approval.symbol,
 			decimals: approval.decimals,
 		})),
 		confidence: simulation.confidence,
+		approvalsConfidence: simulation.approvalsConfidence,
 		notes: simulation.notes,
 	};
 }

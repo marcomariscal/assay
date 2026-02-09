@@ -9,6 +9,7 @@ import type {
 	AssetChange,
 	BalanceSimulationResult,
 	Chain,
+	ConfidenceLevel,
 	Finding,
 	Recommendation,
 } from "../types";
@@ -349,10 +350,18 @@ function orderBalanceChanges(changes: string[]): string[] {
 	return [...negative, ...positive, ...other];
 }
 
-function simulationConfidenceNote(simulation: BalanceSimulationResult | undefined): string {
-	if (!simulation) return "";
-	if (!simulation.success) return "";
-	return simulation.confidence !== "high" ? ` (${simulation.confidence} confidence)` : "";
+function sectionConfidenceSuffix(level: ConfidenceLevel | undefined): string {
+	if (!level) return "";
+	return ` (${level} confidence)`;
+}
+
+function simulationIsUncertain(result: AnalysisResult, hasCalldata: boolean): boolean {
+	if (!hasCalldata) return false;
+	const simulation = result.simulation;
+	if (!simulation || !simulation.success) return true;
+	if (simulation.confidence !== "high") return true;
+	if (simulation.approvalsConfidence !== "high") return true;
+	return false;
 }
 
 function renderBalanceSection(
@@ -361,7 +370,8 @@ function renderBalanceSection(
 	actorLabel: "You" | "Sender",
 ): string[] {
 	const lines: string[] = [];
-	lines.push(" 💰 BALANCE CHANGES");
+	const confidence = result.simulation?.confidence;
+	lines.push(` 💰 BALANCE CHANGES${sectionConfidenceSuffix(confidence)}`);
 
 	if (!hasCalldata) {
 		lines.push(COLORS.dim(" - Not available (no calldata)"));
@@ -391,9 +401,8 @@ function renderBalanceSection(
 
 	const changes = buildBalanceChangeItems(result.simulation, result.contract.chain);
 	if (changes.length === 0) {
-		const note = simulationConfidenceNote(result.simulation);
-		const line = ` - No balance changes detected${note}`;
-		lines.push(note ? COLORS.warning(line) : COLORS.dim(line));
+		const line = " - No balance changes detected";
+		lines.push(result.simulation.confidence === "high" ? COLORS.dim(line) : COLORS.warning(line));
 		return lines;
 	}
 
@@ -411,44 +420,45 @@ function renderBalanceSection(
 		lines.push(` - ${trimmed}`);
 	}
 
-	const note = simulationConfidenceNote(result.simulation);
-	if (note) {
-		lines.push(COLORS.warning(` - Note: ${note.replace(/^\s*\(|\)\s*$/g, "")}`));
-	}
-
 	return lines;
 }
 
-function buildApprovalItems(
-	result: AnalysisResult,
-): Array<{ text: string; isUnlimited: boolean; source: "calldata" | "simulation" }> {
-	const items = new Map<
-		string,
-		{ text: string; isUnlimited: boolean; source: "calldata" | "simulation" }
-	>();
-	const tokenFallback = result.contract.name ?? shortenAddress(result.contract.address);
+type RenderedApprovalItem = {
+	text: string;
+	detail?: string;
+	isWarning: boolean;
+	source: "calldata" | "simulation";
+	key: string;
+};
 
-	// From calldata findings
+function buildApprovalItems(result: AnalysisResult): RenderedApprovalItem[] {
+	const items = new Map<string, RenderedApprovalItem>();
+	const simulation = result.simulation;
+
+	if (simulation && simulation.approvals.length > 0) {
+		for (const approval of simulation.approvals) {
+			const item = formatSimulationApproval(approval, result.contract.chain);
+			items.set(item.key.toLowerCase(), { ...item, source: "simulation" });
+		}
+	}
+
+	if (items.size > 0) {
+		return Array.from(items.values());
+	}
+
+	const tokenFallback = result.contract.name ?? shortenAddress(result.contract.address);
 	for (const finding of result.findings) {
 		if (finding.code !== "UNLIMITED_APPROVAL") continue;
 		const details = finding.details;
 		const spender = details && typeof details.spender === "string" ? details.spender : undefined;
 		const spenderLabel = spender ? shortenAddress(spender) : "unknown";
-		const key = `${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}`;
+		const key = `${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}|calldata`;
 		items.set(key, {
-			text: `${tokenFallback}: UNLIMITED to ${spenderLabel}`,
-			isUnlimited: true,
+			text: `Allow ${spenderLabel} to spend UNLIMITED ${tokenFallback}`,
+			isWarning: true,
 			source: "calldata",
+			key,
 		});
-	}
-
-	// From simulation
-	if (result.simulation) {
-		for (const approval of result.simulation.approvals) {
-			const item = formatSimulationApproval(approval, result.contract.chain);
-			const key = `${item.key.toLowerCase()}`;
-			items.set(key, { text: item.text, isUnlimited: item.isUnlimited, source: "simulation" });
-		}
 	}
 
 	return Array.from(items.values());
@@ -466,7 +476,8 @@ function formatApprovalAmount(amount: bigint, decimals?: number): string {
 
 function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): string[] {
 	const lines: string[] = [];
-	lines.push(" 🔐 APPROVALS");
+	const confidence = result.simulation?.approvalsConfidence;
+	lines.push(` 🔐 APPROVALS${sectionConfidenceSuffix(confidence)}`);
 	if (!hasCalldata) {
 		lines.push(COLORS.dim(" - Not available (no calldata)"));
 		return lines;
@@ -485,11 +496,13 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 		lines.push(COLORS.dim(" - None detected"));
 		return lines;
 	}
+
 	for (const approval of approvals) {
-		if (approval.isUnlimited) {
-			lines.push(` ${COLORS.warning(`⚠️ ${approval.text}`)}`);
-		} else {
-			lines.push(` ${COLORS.dim(`• ${approval.text}`)}`);
+		const prefix = approval.isWarning ? "⚠️" : "✓";
+		const line = `${prefix} ${approval.text}`;
+		lines.push(approval.isWarning ? ` ${COLORS.warning(line)}` : ` ${COLORS.ok(line)}`);
+		if (approval.detail) {
+			lines.push(`   ${COLORS.warning(`(${approval.detail})`)}`);
 		}
 	}
 	return lines;
@@ -577,9 +590,7 @@ function renderPolicySection(
 		lines.push(COLORS.warning(` ⚠️ Non-allowlisted ${endpoint.role}: ${label}`));
 	}
 
-	const simulationUncertain =
-		hasCalldata &&
-		(!result.simulation || !result.simulation.success || result.simulation.confidence !== "high");
+	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 
 	let decision = policy.decision;
 	let decisionReason: string | null = null;
@@ -612,9 +623,7 @@ function renderPolicySection(
 function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string[] {
 	let label = recommendationRiskLabel(result.recommendation);
 
-	const simulationUncertain =
-		hasCalldata &&
-		(!result.simulation || !result.simulation.success || result.simulation.confidence !== "high");
+	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	if (simulationUncertain && label === "SAFE") {
 		label = "LOW";
 	}
@@ -630,7 +639,7 @@ function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string
 			? "simulation not run"
 			: !simulation.success
 				? `simulation failed${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`
-				: `simulation ${simulation.confidence} confidence`;
+				: `balances ${simulation.confidence} confidence, approvals ${simulation.approvalsConfidence} confidence`;
 		lines.push(COLORS.warning(` ⚠️ INCONCLUSIVE: ${reason} — balances/approvals may be unknown`));
 	}
 
@@ -758,19 +767,32 @@ function formatSimulationApproval(
 	chain: Chain,
 ): {
 	text: string;
-	isUnlimited: boolean;
+	detail?: string;
+	isWarning: boolean;
 	key: string;
 } {
 	const spenderLabel = formatSpenderLabel(approval.spender, chain);
-	const tokenLabel = formatTokenLabel(approval.token, approval.symbol);
+	const tokenLabel = approval.symbol ? cleanLabel(approval.symbol) : shortenAddress(approval.token);
 	const prefix = approval.standard === "permit2" ? "PERMIT2 " : "";
 
 	if (approval.scope === "all") {
 		const approved = approval.approved !== false;
-		const label = approved ? "Approve ALL" : "Revoke ALL";
+		const previous =
+			approval.previousApproved === undefined
+				? undefined
+				: approval.previousApproved
+					? "enabled"
+					: "disabled";
+		const action = approved
+			? `${prefix}Grant ${spenderLabel} operator access for ALL ${tokenLabel}`
+			: `${prefix}Revoke ${spenderLabel} operator access for ALL ${tokenLabel}`;
 		return {
-			text: `${prefix}${label} for ${tokenLabel} → ${spenderLabel}`,
-			isUnlimited: approved,
+			text: previous ? `${action} (was ${previous})` : action,
+			detail:
+				previous === undefined
+					? "previous operator approval unknown — state read failed"
+					: undefined,
+			isWarning: approved,
 			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|all|${approved}`,
 		};
 	}
@@ -780,22 +802,55 @@ function formatSimulationApproval(
 		approval.standard !== "erc20" &&
 		approval.standard !== "permit2"
 	) {
+		const revoking = isZeroAddress(approval.spender);
+		const previousSpender = approval.previousSpender
+			? formatSpenderLabel(approval.previousSpender, chain)
+			: undefined;
+		const action = revoking
+			? `${prefix}Revoke ${tokenLabel} #${approval.tokenId.toString()} approval`
+			: `${prefix}Approve ${tokenLabel} #${approval.tokenId.toString()} for ${spenderLabel}`;
 		return {
-			text: `${prefix}Approve ${tokenLabel} #${approval.tokenId.toString()} → ${spenderLabel}`,
-			isUnlimited: false,
+			text: previousSpender ? `${action} (was ${previousSpender})` : action,
+			detail: previousSpender ? undefined : "previous approved spender unknown — state read failed",
+			isWarning: !revoking,
 			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|${approval.tokenId.toString()}`,
 		};
 	}
 
-	const isUnlimited =
-		approval.standard === "permit2"
-			? approval.amount === MAX_UINT160
-			: approval.amount === MAX_UINT256;
+	const amount = approval.amount;
+	const previousAmount = approval.previousAmount;
 	const amountLabel = formatApprovalAmountLabel(approval);
+	const previousLabel =
+		previousAmount === undefined
+			? undefined
+			: formatAllowanceAmountLabel(approval.standard, previousAmount, approval.decimals);
 
+	if (amount === undefined) {
+		const action = `${prefix}Allow ${spenderLabel} to spend UNKNOWN ${tokenLabel}`;
+		return {
+			text: previousLabel ? `${action} (was ${previousLabel})` : action,
+			detail:
+				previousLabel === undefined ? "allowance amount unknown — state read failed" : undefined,
+			isWarning: true,
+			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|unknown`,
+		};
+	}
+
+	if (amount === 0n) {
+		const action = `${prefix}Revoke ${spenderLabel} spending of ${tokenLabel}`;
+		return {
+			text: previousLabel ? `${action} (was ${previousLabel})` : action,
+			detail: previousLabel ? undefined : "previous allowance unknown — state read failed",
+			isWarning: false,
+			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|revoke`,
+		};
+	}
+
+	const action = `${prefix}Allow ${spenderLabel} to spend ${amountLabel} ${tokenLabel}`;
 	return {
-		text: `${prefix}Allow ${spenderLabel} to spend up to ${amountLabel} ${tokenLabel}`,
-		isUnlimited,
+		text: previousLabel ? `${action} (was ${previousLabel})` : action,
+		detail: previousLabel ? undefined : "previous allowance unknown — state read failed",
+		isWarning: true,
 		key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|${amountLabel}`,
 	};
 }
@@ -880,18 +935,27 @@ function formatTokenAmount(amount: bigint, decimals: number | undefined): string
 	return formatNumberString(formatFixed(amount, decimals), 6);
 }
 
-function formatApprovalAmountLabel(approval: BalanceSimulationResult["approvals"][number]): string {
-	const isUnlimited =
-		approval.standard === "permit2"
-			? approval.amount === MAX_UINT160
-			: approval.amount === MAX_UINT256;
+function formatAllowanceAmountLabel(
+	standard: "erc20" | "permit2" | "erc721" | "erc1155",
+	amount: bigint,
+	decimals: number | undefined,
+): string {
+	const isUnlimited = standard === "permit2" ? amount === MAX_UINT160 : amount === MAX_UINT256;
 	if (isUnlimited) return "UNLIMITED";
+	return formatTokenAmount(amount, decimals);
+}
+
+function formatApprovalAmountLabel(approval: BalanceSimulationResult["approvals"][number]): string {
 	if (approval.amount === undefined) return "UNKNOWN";
-	return formatTokenAmount(approval.amount, approval.decimals);
+	return formatAllowanceAmountLabel(approval.standard, approval.amount, approval.decimals);
 }
 
 function nativeSymbol(chain: Chain): string {
 	return NATIVE_SYMBOLS[chain] ?? "ETH";
+}
+
+function isZeroAddress(address: string): boolean {
+	return /^0x0{40}$/i.test(address);
 }
 
 function shortenAddress(address: string): string {

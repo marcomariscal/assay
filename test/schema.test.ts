@@ -61,6 +61,45 @@ describe("schema", () => {
 		}
 	});
 
+	test("AnalyzeResponse accepts v1 simulation payloads without approvalsConfidence", () => {
+		const response = {
+			requestId: "00000000-0000-4000-8000-000000000000",
+			scan: {
+				input: {
+					calldata: {
+						to: "0x2222222222222222222222222222222222222222",
+						from: address,
+						data: "0x1234abcd",
+						value: "0",
+						chain: "ethereum",
+					},
+				},
+				recommendation: "ok",
+				confidence: 0.9,
+				findings: [],
+				contract: {
+					address,
+					chain: "ethereum",
+					isContract: true,
+					verifiedSource: true,
+				},
+				simulation: {
+					success: true,
+					assetChanges: [],
+					approvals: [],
+					confidence: "low",
+					notes: [],
+				},
+			},
+		};
+
+		const result = analyzeResponseSchema.safeParse(response);
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.scan.simulation?.approvalsConfidence).toBe("low");
+		}
+	});
+
 	test("AnalyzeResponse JSON output includes schemaVersion=1", () => {
 		const requestId = "00000000-0000-4000-8000-000000000000";
 		const address = "0x1111111111111111111111111111111111111111";

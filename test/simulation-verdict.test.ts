@@ -43,6 +43,7 @@ describe("applySimulationVerdict", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "low",
+				approvalsConfidence: "low",
 				notes: ["reverted"],
 			},
 		};
@@ -60,6 +61,7 @@ describe("applySimulationVerdict", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "low",
+				approvalsConfidence: "low",
 				notes: ["Simulation not run"],
 			},
 		};
@@ -76,6 +78,7 @@ describe("applySimulationVerdict", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "high",
+				approvalsConfidence: "high",
 				notes: [],
 			},
 		};

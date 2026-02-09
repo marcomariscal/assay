@@ -17,12 +17,12 @@ Tx scan on ethereum
 │  ✓ Allowlisted to: Universal Router (0x66a9...a8af)                               │
 │  Policy decision: BLOCK (INCONCLUSIVE simulation)                                 │
 ├───────────────────────────────────────────────────────────────────────────────────┤
-│  💰 BALANCE CHANGES                                                               │
+│  💰 BALANCE CHANGES (low confidence)                                              │
 │  - Simulation failed (Timeout)                                                    │
 │  - wallet fast-mode enabled; simulation skipped.                                  │
 │  - Balance changes unknown                                                        │
 ├───────────────────────────────────────────────────────────────────────────────────┤
-│  🔐 APPROVALS                                                                     │
+│  🔐 APPROVALS (low confidence)                                                    │
 │  - Approvals unknown (simulation failed)                                          │
 ├───────────────────────────────────────────────────────────────────────────────────┤
 │  📊 RISK: LOW                                                                     │

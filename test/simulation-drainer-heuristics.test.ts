@@ -59,6 +59,7 @@ describe("simulation-driven drainer heuristics", () => {
 				},
 			],
 			confidence: "high",
+			approvalsConfidence: "high",
 			notes: [],
 		});
 
@@ -83,6 +84,7 @@ describe("simulation-driven drainer heuristics", () => {
 				},
 			],
 			confidence: "high",
+			approvalsConfidence: "high",
 			notes: [],
 		});
 
@@ -108,6 +110,7 @@ describe("simulation-driven drainer heuristics", () => {
 				},
 			],
 			confidence: "high",
+			approvalsConfidence: "high",
 			notes: [],
 		});
 
@@ -139,6 +142,7 @@ describe("simulation-driven drainer heuristics", () => {
 			],
 			approvals: [],
 			confidence: "high",
+			approvalsConfidence: "high",
 			notes: [],
 		});
 
@@ -175,6 +179,7 @@ describe("simulation-driven drainer heuristics", () => {
 				},
 			],
 			confidence: "high",
+			approvalsConfidence: "high",
 			notes: [],
 		});
 

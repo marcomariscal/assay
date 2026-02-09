@@ -40,7 +40,8 @@
 			"assetChanges": [],
 			"approvals": [],
 			"confidence": "low",
-			"notes": ["Simulation failed", "Hint: wallet fast-mode enabled; simulation skipped."]
+			"notes": ["Simulation failed", "Hint: wallet fast-mode enabled; simulation skipped."],
+			"approvalsConfidence": "low"
 		}
 	}
 }

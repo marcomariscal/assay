@@ -148,9 +148,12 @@ export interface ApprovalChange {
 	owner: string;
 	spender: string;
 	amount?: bigint;
+	previousAmount?: bigint;
 	tokenId?: bigint;
 	scope?: "token" | "all";
 	approved?: boolean;
+	previousApproved?: boolean;
+	previousSpender?: string;
 	// Optional ERC-20 metadata (for human-readable display)
 	symbol?: string;
 	decimals?: number;
@@ -165,6 +168,7 @@ export interface BalanceSimulationResult {
 	assetChanges: AssetChange[];
 	approvals: ApprovalChange[];
 	confidence: ConfidenceLevel;
+	approvalsConfidence: ConfidenceLevel;
 	notes: string[];
 }
 

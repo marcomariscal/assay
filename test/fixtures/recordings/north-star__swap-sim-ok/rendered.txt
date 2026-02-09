@@ -12,10 +12,10 @@ Tx scan on ethereum
 │  ✓ Source code verified: Universal Router [VERIFIED] │
 │  ✓ Recognized protocol: Uniswap [KNOWN_PROTOCOL]     │
 ├──────────────────────────────────────────────────────┤
-│  💰 BALANCE CHANGES                                  │
+│  💰 BALANCE CHANGES (high confidence)                │
 │  - No balance changes detected                       │
 ├──────────────────────────────────────────────────────┤
-│  🔐 APPROVALS                                        │
+│  🔐 APPROVALS (high confidence)                      │
 │  - None detected                                     │
 ├──────────────────────────────────────────────────────┤
 │  📊 RISK: SAFE                                       │

@@ -14,8 +14,9 @@ import type {
 	Config,
 } from "../types";
 import { AnvilUnavailableError, getAnvilClient } from "./anvil";
+import { buildApprovalDiffs } from "./approval-diffs";
 import { buildWalletFastErc20Changes, selectWalletFastErc20Tokens } from "./delta-engine";
-import { type ParsedTransfer, parseReceiptLogs } from "./logs";
+import { type ParsedApproval, type ParsedTransfer, parseReceiptLogs } from "./logs";
 import { buildSimulationNotRun } from "./verdict";
 
 const HIGH_BALANCE = 10n ** 22n;
@@ -234,7 +235,8 @@ async function simulateWithAnvilOnce(
 	}
 
 	const notes: string[] = [];
-	let confidence: ConfidenceLevel = "high";
+	let balanceConfidence: ConfidenceLevel = "high";
+	let approvalsConfidence: ConfidenceLevel = "high";
 
 	return await instance.runExclusive(async () => {
 		const warmResetResult = await instance.resetFork();
@@ -253,7 +255,8 @@ async function simulateWithAnvilOnce(
 			const isContractAccount = await checkContractAccountOnFork(client, from);
 			timings?.add("simulation.senderContractCheck", nowMs() - contractCheckStarted);
 			if (isContractAccount) {
-				confidence = "low";
+				balanceConfidence = "low";
+				approvalsConfidence = "low";
 				notes.push("Sender is a contract account; simulation is best-effort.");
 			}
 
@@ -269,7 +272,8 @@ async function simulateWithAnvilOnce(
 					txValue,
 					timings,
 					notes,
-					confidence,
+					balanceConfidence,
+					approvalsConfidence,
 					budgetMs,
 				});
 			}
@@ -301,7 +305,13 @@ async function simulateWithAnvilOnce(
 				const reason =
 					(await attemptRevertReason(client, { from, to, data, value: txValue })) ??
 					(error instanceof Error ? error.message : "Simulation failed");
-				return simulateFailure(reason, notes, confidence, buildFailureHints(tx));
+				return simulateFailure(
+					reason,
+					notes,
+					balanceConfidence,
+					approvalsConfidence,
+					buildFailureHints(tx),
+				);
 			}
 
 			if (!receipt || receipt.status !== "success") {
@@ -313,12 +323,19 @@ async function simulateWithAnvilOnce(
 						value: txValue,
 						blockNumber: receipt?.blockNumber,
 					})) ?? "Transaction reverted";
-				return simulateFailure(reason, notes, confidence, buildFailureHints(tx));
+				return simulateFailure(
+					reason,
+					notes,
+					balanceConfidence,
+					approvalsConfidence,
+					buildFailureHints(tx),
+				);
 			}
 
 			const parsedLogs = await parseReceiptLogs(receipt.logs, client);
 			notes.push(...parsedLogs.notes);
-			confidence = minConfidence(confidence, parsedLogs.confidence);
+			balanceConfidence = minConfidence(balanceConfidence, parsedLogs.confidence);
+			approvalsConfidence = minConfidence(approvalsConfidence, parsedLogs.confidence);
 
 			for (const transfer of parsedLogs.transfers) {
 				if (transfer.standard === "erc20") {
@@ -348,7 +365,7 @@ async function simulateWithAnvilOnce(
 					}
 				} else {
 					notes.push("Unable to read pre-transaction balances for newly discovered tokens.");
-					confidence = minConfidence(confidence, "medium");
+					balanceConfidence = minConfidence(balanceConfidence, "medium");
 				}
 			}
 
@@ -358,18 +375,9 @@ async function simulateWithAnvilOnce(
 			assetChanges.push(...buildErc20Changes(preBalances, postBalances));
 			assetChanges.push(...buildNftChanges(parsedLogs.transfers, from));
 
-			const approvals = parsedLogs.approvals
-				.filter((approval) => approval.owner.toLowerCase() === from.toLowerCase())
-				.map<ApprovalChange>((approval) => ({
-					standard: approval.standard,
-					token: approval.token,
-					owner: approval.owner,
-					spender: approval.spender,
-					amount: approval.amount,
-					tokenId: approval.tokenId,
-					scope: approval.scope,
-					approved: approval.approved,
-				}));
+			const approvals = mapParsedApprovalsToChanges(
+				filterApprovalsByOwner(parsedLogs.approvals, from),
+			);
 
 			const gasCost = receipt.gasUsed * receipt.effectiveGasPrice;
 			const nativeAfter = await client.getBalance({ address: from });
@@ -399,12 +407,19 @@ async function simulateWithAnvilOnce(
 				nativeDiff,
 				assetChanges: enrichedChanges,
 				approvals: enrichedApprovals,
-				confidence,
+				confidence: balanceConfidence,
+				approvalsConfidence,
 				notes,
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Simulation failed";
-			return simulateFailure(message, notes, confidence, buildFailureHints(tx));
+			return simulateFailure(
+				message,
+				notes,
+				balanceConfidence,
+				approvalsConfidence,
+				buildFailureHints(tx),
+			);
 		} finally {
 			const simulationEnded = nowMs();
 			timings?.add("simulation.run", simulationEnded - simulationStarted);
@@ -414,7 +429,7 @@ async function simulateWithAnvilOnce(
 	});
 }
 
-interface WalletFastSimulationOptions {
+export interface WalletFastSimulationOptions {
 	tx: CalldataInput;
 	client: AnvilClient;
 	from: Address;
@@ -423,15 +438,17 @@ interface WalletFastSimulationOptions {
 	txValue: bigint;
 	timings?: TimingStore;
 	notes: string[];
-	confidence: ConfidenceLevel;
+	balanceConfidence: ConfidenceLevel;
+	approvalsConfidence: ConfidenceLevel;
 	budgetMs: number;
 }
 
-async function simulateWithAnvilWalletFast(
+export async function simulateWithAnvilWalletFast(
 	options: WalletFastSimulationOptions,
 ): Promise<BalanceSimulationResult> {
 	const startedAt = nowMs();
-	let confidence = options.confidence;
+	let balanceConfidence = options.balanceConfidence;
+	let approvalsConfidence = options.approvalsConfidence;
 
 	const nativeBefore = await options.client.getBalance({ address: options.from });
 
@@ -453,7 +470,13 @@ async function simulateWithAnvilWalletFast(
 				data: options.data,
 				value: options.txValue,
 			})) ?? (error instanceof Error ? error.message : "Simulation failed");
-		return simulateFailure(reason, options.notes, confidence, buildFailureHints(options.tx));
+		return simulateFailure(
+			reason,
+			options.notes,
+			balanceConfidence,
+			approvalsConfidence,
+			buildFailureHints(options.tx),
+		);
 	}
 
 	if (!receipt || receipt.status !== "success") {
@@ -465,14 +488,21 @@ async function simulateWithAnvilWalletFast(
 				value: options.txValue,
 				blockNumber: receipt?.blockNumber,
 			})) ?? "Transaction reverted";
-		return simulateFailure(reason, options.notes, confidence, buildFailureHints(options.tx));
+		return simulateFailure(
+			reason,
+			options.notes,
+			balanceConfidence,
+			approvalsConfidence,
+			buildFailureHints(options.tx),
+		);
 	}
 
 	const parseLogsStarted = nowMs();
 	const parsedLogs = await parseReceiptLogs(receipt.logs, options.client);
 	options.timings?.add("simulation.walletFast.parseLogs", nowMs() - parseLogsStarted);
 	options.notes.push(...parsedLogs.notes);
-	confidence = minConfidence(confidence, parsedLogs.confidence);
+	balanceConfidence = minConfidence(balanceConfidence, parsedLogs.confidence);
+	approvalsConfidence = minConfidence(approvalsConfidence, parsedLogs.confidence);
 
 	const selectTokensStarted = nowMs();
 	const selected = selectWalletFastErc20Tokens({
@@ -485,7 +515,7 @@ async function simulateWithAnvilWalletFast(
 		options.notes.push(
 			`Wallet-fast token set truncated to ${WALLET_FAST_MAX_ERC20_TOKENS} ERC-20 contracts.`,
 		);
-		confidence = minConfidence(confidence, "medium");
+		balanceConfidence = minConfidence(balanceConfidence, "medium");
 	}
 
 	const tokenSet = new Set<Address>(selected.tokens);
@@ -514,7 +544,7 @@ async function simulateWithAnvilWalletFast(
 			options.notes.push(
 				"Unable to read pre-transaction balances for wallet-fast token set (missing previous block).",
 			);
-			confidence = minConfidence(confidence, "medium");
+			balanceConfidence = minConfidence(balanceConfidence, "medium");
 		}
 
 		const postBalancesStarted = nowMs();
@@ -542,18 +572,45 @@ async function simulateWithAnvilWalletFast(
 	});
 	assetChanges.push(...buildNftChanges(parsedLogs.transfers, options.from));
 
-	const approvals = parsedLogs.approvals
-		.filter((approval) => approval.owner.toLowerCase() === options.from.toLowerCase())
-		.map<ApprovalChange>((approval) => ({
-			standard: approval.standard,
-			token: approval.token,
-			owner: approval.owner,
-			spender: approval.spender,
-			amount: approval.amount,
-			tokenId: approval.tokenId,
-			scope: approval.scope,
-			approved: approval.approved,
-		}));
+	const actorApprovals = filterApprovalsByOwner(parsedLogs.approvals, options.from);
+	const hasActorApprovalEvents = actorApprovals.length > 0;
+	let approvals = mapParsedApprovalsToChanges(actorApprovals);
+
+	const approvalsStarted = nowMs();
+	const approvalsBudgetReached = nowMs() - startedAt >= options.budgetMs;
+	if (approvalsBudgetReached) {
+		if (hasActorApprovalEvents) {
+			options.notes.push(
+				`Wallet-fast budget (${options.budgetMs}ms) reached before approval state reads; using event-derived approvals.`,
+			);
+			approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		}
+	} else {
+		const previousBlock = receipt.blockNumber > 0n ? receipt.blockNumber - 1n : undefined;
+		if (previousBlock === undefined) {
+			options.notes.push(
+				"Unable to read pre-transaction approvals for wallet-fast mode (missing previous block).",
+			);
+			approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		} else {
+			try {
+				const diffResult = await buildApprovalDiffs(actorApprovals, options.client, {
+					beforeBlock: previousBlock,
+					afterBlock: receipt.blockNumber,
+				});
+				approvals = diffResult.approvals;
+				approvalsConfidence = minConfidence(approvalsConfidence, diffResult.confidence);
+				options.notes.push(...diffResult.notes);
+			} catch (error) {
+				const message = error instanceof Error ? error.message : "unknown error";
+				options.notes.push(
+					`Approval diff stage failed; using event-derived approvals (${message}).`,
+				);
+				approvalsConfidence = minConfidence(approvalsConfidence, "low");
+			}
+		}
+	}
+	options.timings?.add("simulation.walletFast.approvals", nowMs() - approvalsStarted);
 
 	const gasCost = receipt.gasUsed * receipt.effectiveGasPrice;
 	const nativeAfter = await options.client.getBalance({ address: options.from });
@@ -582,12 +639,15 @@ async function simulateWithAnvilWalletFast(
 		options.notes.push(
 			`Wallet-fast budget (${options.budgetMs}ms) reached; skipped ERC-20 metadata lookups.`,
 		);
-		confidence = minConfidence(confidence, "medium");
+		balanceConfidence = minConfidence(balanceConfidence, "medium");
 	}
 
 	if (nowMs() - startedAt > options.budgetMs) {
 		options.notes.push(`Wallet-fast simulation exceeded ${options.budgetMs}ms budget.`);
-		confidence = minConfidence(confidence, "medium");
+		balanceConfidence = minConfidence(balanceConfidence, "medium");
+		if (hasActorApprovalEvents) {
+			approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		}
 	}
 
 	const enrichedChanges = applyTokenMetadata(assetChanges, metadata);
@@ -600,7 +660,8 @@ async function simulateWithAnvilWalletFast(
 		nativeDiff,
 		assetChanges: enrichedChanges,
 		approvals: enrichedApprovals,
-		confidence,
+		confidence: balanceConfidence,
+		approvalsConfidence,
 		notes: options.notes,
 	};
 }
@@ -617,7 +678,8 @@ async function checkContractAccountOnFork(client: AnvilClient, address: Address)
 function simulateFailure(
 	message: string,
 	notes: string[],
-	confidence: ConfidenceLevel,
+	balanceConfidence: ConfidenceLevel,
+	approvalsConfidence: ConfidenceLevel,
 	hints: string[] = [],
 ): BalanceSimulationResult {
 	const mergedNotes = [...notes, message, ...hints];
@@ -626,7 +688,8 @@ function simulateFailure(
 		revertReason: message,
 		assetChanges: [],
 		approvals: [],
-		confidence: minConfidence(confidence, "low"),
+		confidence: minConfidence(balanceConfidence, "low"),
+		approvalsConfidence: minConfidence(approvalsConfidence, "low"),
 		notes: mergedNotes,
 	};
 }
@@ -727,6 +790,7 @@ function simulateHeuristic(
 		assetChanges,
 		approvals,
 		confidence: "low",
+		approvalsConfidence: "low",
 		notes,
 	};
 }
@@ -1044,6 +1108,24 @@ function applyApprovalMetadata(
 			decimals: meta.decimals ?? approval.decimals,
 		};
 	});
+}
+
+function filterApprovalsByOwner(approvals: ParsedApproval[], owner: Address): ParsedApproval[] {
+	const ownerLower = owner.toLowerCase();
+	return approvals.filter((approval) => approval.owner.toLowerCase() === ownerLower);
+}
+
+function mapParsedApprovalsToChanges(approvals: ParsedApproval[]): ApprovalChange[] {
+	return approvals.map((approval) => ({
+		standard: approval.standard,
+		token: approval.token,
+		owner: approval.owner,
+		spender: approval.spender,
+		amount: approval.amount,
+		tokenId: approval.tokenId,
+		scope: approval.scope,
+		approved: approval.approved,
+	}));
 }
 
 function buildErc20Changes(
