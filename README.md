@@ -124,6 +124,40 @@ Tools exposed:
 - `assay.analyzeTransaction`
 - `assay.analyzeAddress`
 
+### Claude Code: MCP vs non-MCP
+
+**Recommended: MCP mode** (tool calls from Claude Code)
+
+Add an MCP server entry in your Claude Code MCP config:
+
+```json
+{
+  "mcpServers": {
+    "assay": {
+      "command": "assay",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Then Claude can call `assay.analyzeTransaction` / `assay.analyzeAddress` directly.
+
+**Fallback: non-MCP mode** (CLI only)
+
+Run Assay from terminal and paste output into Claude:
+
+```bash
+# address scan (JSON output)
+assay scan 0x1234... --format json
+
+# calldata scan from file
+assay scan --calldata @tx.json --format json
+
+# human-readable output
+assay scan --calldata @tx.json --format text
+```
+
 ## Output
 
 ```
