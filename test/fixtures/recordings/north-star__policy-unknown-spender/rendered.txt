@@ -21,7 +21,7 @@ Tx scan on ethereum
 │  - No balance changes detected                                    │
 ├───────────────────────────────────────────────────────────────────┤
 │  🔐 APPROVALS (high confidence)                                   │
-│  ⚠️ ⚠️ Allow 0x9999...9999 to spend UNLIMITED USD Coin            │
+│  ⚠️ Allow 0x9999...9999 to spend UNLIMITED USD Coin               │
 ├───────────────────────────────────────────────────────────────────┤
 │  📊 RISK: MEDIUM                                                  │
 └───────────────────────────────────────────────────────────────────┘

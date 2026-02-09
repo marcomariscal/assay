@@ -454,7 +454,7 @@ function buildApprovalItems(result: AnalysisResult): RenderedApprovalItem[] {
 		const spenderLabel = spender ? shortenAddress(spender) : "unknown";
 		const key = `${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}|calldata`;
 		items.set(key, {
-			text: `⚠️ Allow ${spenderLabel} to spend UNLIMITED ${tokenFallback}`,
+			text: `Allow ${spenderLabel} to spend UNLIMITED ${tokenFallback}`,
 			isWarning: true,
 			source: "calldata",
 			key,

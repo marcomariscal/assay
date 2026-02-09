@@ -98,6 +98,7 @@ export interface AnalyzeResponse {
 }
 
 const recommendationSchema = z.enum(["ok", "caution", "warning", "danger"]);
+const confidenceLevelSchema = z.enum(["high", "medium", "low"]);
 
 const addressSchema = z.string().refine((value) => isAddress(value), {
 	message: "Invalid address",
@@ -188,11 +189,15 @@ const balanceSimulationSchema = z
 		nativeDiff: z.string().optional(),
 		assetChanges: z.array(assetChangeSchema),
 		approvals: z.array(approvalChangeSchema),
-		confidence: z.enum(["high", "medium", "low"]),
-		approvalsConfidence: z.enum(["high", "medium", "low"]),
+		confidence: confidenceLevelSchema,
+		approvalsConfidence: confidenceLevelSchema.optional(),
 		notes: z.array(z.string()),
 	})
-	.strict();
+	.strict()
+	.transform((simulation) => ({
+		...simulation,
+		approvalsConfidence: simulation.approvalsConfidence ?? simulation.confidence,
+	}));
 
 export const contractInfoSchema = z
 	.object({

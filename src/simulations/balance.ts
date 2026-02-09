@@ -429,7 +429,7 @@ async function simulateWithAnvilOnce(
 	});
 }
 
-interface WalletFastSimulationOptions {
+export interface WalletFastSimulationOptions {
 	tx: CalldataInput;
 	client: AnvilClient;
 	from: Address;
@@ -443,7 +443,7 @@ interface WalletFastSimulationOptions {
 	budgetMs: number;
 }
 
-async function simulateWithAnvilWalletFast(
+export async function simulateWithAnvilWalletFast(
 	options: WalletFastSimulationOptions,
 ): Promise<BalanceSimulationResult> {
 	const startedAt = nowMs();
@@ -573,15 +573,18 @@ async function simulateWithAnvilWalletFast(
 	assetChanges.push(...buildNftChanges(parsedLogs.transfers, options.from));
 
 	const actorApprovals = filterApprovalsByOwner(parsedLogs.approvals, options.from);
+	const hasActorApprovalEvents = actorApprovals.length > 0;
 	let approvals = mapParsedApprovalsToChanges(actorApprovals);
 
 	const approvalsStarted = nowMs();
 	const approvalsBudgetReached = nowMs() - startedAt >= options.budgetMs;
 	if (approvalsBudgetReached) {
-		options.notes.push(
-			`Wallet-fast budget (${options.budgetMs}ms) reached before approval state reads; using event-derived approvals.`,
-		);
-		approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		if (hasActorApprovalEvents) {
+			options.notes.push(
+				`Wallet-fast budget (${options.budgetMs}ms) reached before approval state reads; using event-derived approvals.`,
+			);
+			approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		}
 	} else {
 		const previousBlock = receipt.blockNumber > 0n ? receipt.blockNumber - 1n : undefined;
 		if (previousBlock === undefined) {
@@ -642,7 +645,9 @@ async function simulateWithAnvilWalletFast(
 	if (nowMs() - startedAt > options.budgetMs) {
 		options.notes.push(`Wallet-fast simulation exceeded ${options.budgetMs}ms budget.`);
 		balanceConfidence = minConfidence(balanceConfidence, "medium");
-		approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		if (hasActorApprovalEvents) {
+			approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+		}
 	}
 
 	const enrichedChanges = applyTokenMetadata(assetChanges, metadata);

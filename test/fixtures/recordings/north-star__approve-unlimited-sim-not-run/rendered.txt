@@ -16,7 +16,7 @@ Tx scan on ethereum
 ├──────────────────────────────────────────────────────────────────────────┤
 │  🔐 APPROVALS                                                            │
 │  - Partial approvals (simulation failed):                                │
-│  ⚠️ ⚠️ Allow 0x0000...0002 to spend UNLIMITED USD Coin                   │
+│  ⚠️ Allow 0x0000...0002 to spend UNLIMITED USD Coin                      │
 ├──────────────────────────────────────────────────────────────────────────┤
 │  📊 RISK: LOW                                                            │
 │  ⚠️ INCONCLUSIVE: simulation not run — balances/approvals may be unknown │
