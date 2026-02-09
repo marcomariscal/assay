@@ -19,8 +19,8 @@ Pre-transaction security analysis for EVM contracts. Know what you're signing be
 For now, run from source:
 
 ```bash
-git clone https://github.com/marcomariscal/Assay.git
-cd Assay
+git clone https://github.com/marcomariscal/assay.git
+cd assay
 bun install
 
 # examples below use `assay ...`; when running from source, replace with:
