@@ -41,6 +41,8 @@ describe("cli recommendation label with simulation failures", () => {
 		expect(recommendationLine).toBeDefined();
 		expect(recommendationLine).not.toContain("OK");
 		expect(recommendationLine).toContain("CAUTION");
+		expect(output).toContain("👉 NEXT ACTION");
+		expect(output).toContain("Action: BLOCK");
 		expect(output).not.toContain("- None detected");
 	});
 
@@ -56,6 +58,8 @@ describe("cli recommendation label with simulation failures", () => {
 		expect(recommendationLine).toBeDefined();
 		expect(recommendationLine).not.toContain("OK");
 		expect(recommendationLine).toContain("CAUTION");
+		expect(output).toContain("👉 NEXT ACTION");
+		expect(output).toContain("Action: BLOCK");
 		expect(output).not.toContain("- None detected");
 	});
 
@@ -77,7 +81,46 @@ describe("cli recommendation label with simulation failures", () => {
 		expect(recommendationLine).toBeDefined();
 		expect(recommendationLine).not.toContain("OK");
 		expect(recommendationLine).toContain("CAUTION");
+		expect(output).toContain("👉 NEXT ACTION");
+		expect(output).toContain("Action: BLOCK");
 		expect(output).toContain("Could not verify all balance changes; treat this as higher risk.");
 		expect(output).toContain("Approval coverage is incomplete; treat this as higher risk.");
+	});
+
+	test("checks findings are severity-ordered and capped by default", () => {
+		const analysis: AnalysisResult = {
+			...baseAnalysis(),
+			contract: {
+				...baseAnalysis().contract,
+				verified: false,
+			},
+			recommendation: "warning",
+			findings: [
+				{ level: "danger", code: "UNVERIFIED", message: "Source code is not verified" },
+				{ level: "danger", code: "KNOWN_PHISHING", message: "Known phishing label" },
+				{ level: "warning", code: "UPGRADEABLE", message: "Upgradeable proxy" },
+				{ level: "warning", code: "NEW_CONTRACT", message: "Recently deployed" },
+				{ level: "warning", code: "UNLIMITED_APPROVAL", message: "Unlimited approval" },
+				{ level: "info", code: "LOW_ACTIVITY", message: "Low transaction activity" },
+			],
+			simulation: {
+				success: true,
+				balances: { changes: [], confidence: "high" },
+				approvals: { changes: [], confidence: "high" },
+				notes: [],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).toContain("+2 more (use --verbose)");
+
+		const phishingIndex = output.indexOf("KNOWN_PHISHING");
+		const unverifiedIndex = output.indexOf("UNVERIFIED");
+		const upgradeableIndex = output.indexOf("UPGRADEABLE");
+		expect(phishingIndex).toBeGreaterThanOrEqual(0);
+		expect(unverifiedIndex).toBeGreaterThanOrEqual(0);
+		expect(upgradeableIndex).toBeGreaterThanOrEqual(0);
+		expect(phishingIndex).toBeLessThan(unverifiedIndex);
+		expect(unverifiedIndex).toBeLessThan(upgradeableIndex);
 	});
 });

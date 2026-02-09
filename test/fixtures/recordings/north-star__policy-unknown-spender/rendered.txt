@@ -1,26 +1,33 @@
 Tx scan on ethereum
 
-┌───────────────────────────────────────────────────────────────────┐
-│  Chain: ethereum                                                  │
-│  Protocol: USDC                                                   │
-│  Action: Approve USDC allowance                                   │
-│  Contract: USD Coin                                               │
-├───────────────────────────────────────────────────────────────────┤
-│  🧾 CHECKS                                                        │
-│  ✓ Source verified                                                │
-│  ⚠️ Unlimited token approval (max allowance) [UNLIMITED_APPROVAL] │
-├───────────────────────────────────────────────────────────────────┤
-│  🛡️ POLICY / ALLOWLIST                                           │
-│  ✓ Allowed protocol (soft): USDC                                  │
-│  ✓ Allowlisted to: USD Coin (0xa0b8...eb48)                       │
-│  ⚠️ Non-allowlisted spender: Unknown spender (0x9999...9999)      │
-│  Policy decision: BLOCK                                           │
-├───────────────────────────────────────────────────────────────────┤
-│  💰 BALANCE CHANGES (high confidence)                             │
-│  - No balance changes detected                                    │
-├───────────────────────────────────────────────────────────────────┤
-│  🔐 APPROVALS (high confidence)                                   │
-│  ⚠️ Allow 0x9999...9999 to spend UNLIMITED USD Coin               │
-├───────────────────────────────────────────────────────────────────┤
-│  📊 RECOMMENDATION: WARNING                                       │
-└───────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Chain: ethereum                                                     │
+│  Protocol: USDC                                                      │
+│  Action: Approve USDC allowance                                      │
+│  Contract: USD Coin                                                  │
+├──────────────────────────────────────────────────────────────────────┤
+│  🎯 RECOMMENDATION: ⚠️ WARNING                                       │
+│  Why: Policy blocked a non-allowlisted endpoint in this transaction. │
+├──────────────────────────────────────────────────────────────────────┤
+│  🧾 CHECKS                                                           │
+│  Context: verified · age: unknown · txs: unknown                     │
+│  ✓ Source verified                                                   │
+│  ⚠️ Unlimited token approval (max allowance) [UNLIMITED_APPROVAL]    │
+├──────────────────────────────────────────────────────────────────────┤
+│  🛡️ POLICY / ALLOWLIST                                              │
+│  ✓ Allowed protocol (soft): USDC                                     │
+│  ✓ Allowlisted to: USD Coin (0xa0b8...eb48)                          │
+│  ⚠️ Non-allowlisted spender: Unknown spender (0x9999...9999)         │
+│  Policy decision: BLOCK                                              │
+├──────────────────────────────────────────────────────────────────────┤
+│  💰 BALANCE CHANGES (high confidence)                                │
+│  - No balance changes detected                                       │
+├──────────────────────────────────────────────────────────────────────┤
+│  🔐 APPROVALS (high confidence)                                      │
+│  ⚠️ Allow 0x9999...9999 to spend UNLIMITED USD Coin                  │
+├──────────────────────────────────────────────────────────────────────┤
+│  📊 RECOMMENDATION: WARNING                                          │
+├──────────────────────────────────────────────────────────────────────┤
+│  👉 NEXT ACTION                                                      │
+│  Action: BLOCK — policy rules did not allow this transaction.        │
+└──────────────────────────────────────────────────────────────────────┘

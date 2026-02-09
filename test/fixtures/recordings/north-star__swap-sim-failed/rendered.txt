@@ -1,28 +1,35 @@
 Tx scan on ethereum
 
-┌──────────────────────────────────────────────────────────────────┐
-│  Chain: ethereum                                                 │
-│  Protocol: Uniswap (uniswap)                                     │
-│  Action: Swap ETH → USDC                                         │
-│  Contract: Universal Router                                      │
-├──────────────────────────────────────────────────────────────────┤
-│  🧾 CHECKS                                                       │
-│  ✓ Source verified                                               │
-│  ✓ Known protocol: Uniswap                                       │
-├──────────────────────────────────────────────────────────────────┤
-│  🛡️ POLICY / ALLOWLIST                                          │
-│  ✓ Allowed protocol (soft): Uniswap                              │
-│  ✓ Allowlisted to: Universal Router (0x66a9...a8af)              │
-│  Policy decision: BLOCK (INCONCLUSIVE simulation)                │
-├──────────────────────────────────────────────────────────────────┤
-│  💰 BALANCE CHANGES (low confidence)                             │
-│  - Simulation did not complete (Timeout)                         │
-│  - wallet fast-mode enabled; simulation skipped.                 │
-│  - Balance changes unknown                                       │
-├──────────────────────────────────────────────────────────────────┤
-│  🔐 APPROVALS (low confidence)                                   │
-│  - Could not verify approval changes; treat this as higher risk. │
-├──────────────────────────────────────────────────────────────────┤
-│  📊 RECOMMENDATION: CAUTION                                      │
-│  ⚠️ INCONCLUSIVE: simulation failed (Timeout)                    │
-└──────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Chain: ethereum                                                                           │
+│  Protocol: Uniswap (uniswap)                                                               │
+│  Action: Swap ETH → USDC                                                                   │
+│  Contract: Universal Router                                                                │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🎯 RECOMMENDATION: ✅ OK                                                                   │
+│  Why: Simulation is inconclusive, so balance and approval effects may be incomplete.       │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🧾 CHECKS                                                                                 │
+│  Context: verified · age: unknown · txs: unknown                                           │
+│  ✓ Source verified                                                                         │
+│  ✓ Known protocol: Uniswap                                                                 │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🛡️ POLICY / ALLOWLIST                                                                    │
+│  ✓ Allowed protocol (soft): Uniswap                                                        │
+│  ✓ Allowlisted to: Universal Router (0x66a9...a8af)                                        │
+│  Policy decision: BLOCK (INCONCLUSIVE simulation)                                          │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  💰 BALANCE CHANGES (low confidence)                                                       │
+│  - Simulation did not complete (Timeout)                                                   │
+│  - wallet fast-mode enabled; simulation skipped.                                           │
+│  - Balance changes unknown                                                                 │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🔐 APPROVALS (low confidence)                                                             │
+│  - Could not verify approval changes; treat this as higher risk.                           │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  📊 RECOMMENDATION: CAUTION                                                                │
+│  ⚠️ INCONCLUSIVE: simulation failed (Timeout)                                              │
+├────────────────────────────────────────────────────────────────────────────────────────────┤
+│  👉 NEXT ACTION                                                                            │
+│  Action: BLOCK — simulation is inconclusive; verify spender, recipient, and amounts first. │
+└────────────────────────────────────────────────────────────────────────────────────────────┘

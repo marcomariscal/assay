@@ -168,6 +168,46 @@ function recommendationStyle(recommendation: Recommendation) {
 	}
 }
 
+const CHECKS_FINDINGS_CAP = 4;
+
+const FINDING_CODE_PRIORITY: Partial<Record<Finding["code"], number>> = {
+	KNOWN_PHISHING: 0,
+	HONEYPOT: 1,
+	OWNER_DRAIN: 2,
+	HIDDEN_MINT: 3,
+	SELFDESTRUCT: 4,
+	UNVERIFIED: 5,
+	APPROVAL_TARGET_MISMATCH: 6,
+	APPROVAL_TO_DANGEROUS_CONTRACT: 7,
+	APPROVAL_TO_EOA: 8,
+	POSSIBLE_TYPOSQUAT: 9,
+	UPGRADEABLE: 10,
+	NEW_CONTRACT: 11,
+	UNLIMITED_APPROVAL: 12,
+	SIM_UNLIMITED_APPROVAL_UNKNOWN_SPENDER: 13,
+	SIM_APPROVAL_FOR_ALL_UNKNOWN_OPERATOR: 14,
+	SIM_MULTIPLE_OUTBOUND_TRANSFERS: 15,
+	LOW_ACTIVITY: 16,
+};
+
+function findingLevelPriority(level: Finding["level"]): number {
+	if (level === "danger") return 0;
+	if (level === "warning") return 1;
+	if (level === "info") return 2;
+	return 3;
+}
+
+function compareFindingsBySignal(a: Finding, b: Finding): number {
+	const levelDiff = findingLevelPriority(a.level) - findingLevelPriority(b.level);
+	if (levelDiff !== 0) return levelDiff;
+
+	const aPriority = FINDING_CODE_PRIORITY[a.code] ?? 999;
+	const bPriority = FINDING_CODE_PRIORITY[b.code] ?? 999;
+	if (aPriority !== bPriority) return aPriority - bPriority;
+
+	return a.code.localeCompare(b.code);
+}
+
 function formatFindingLine(finding: Finding): string {
 	const style =
 		finding.level === "danger"
@@ -557,9 +597,57 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 	return lines;
 }
 
-function renderChecksSection(result: AnalysisResult): string[] {
+function contractVerificationState(result: AnalysisResult): "verified" | "unverified" | "unknown" {
+	if (result.contract.verified) return "verified";
+	const hasUnverifiedFinding = result.findings.some((finding) => finding.code === "UNVERIFIED");
+	return hasUnverifiedFinding ? "unverified" : "unknown";
+}
+
+function formatChecksContextLine(result: AnalysisResult): string {
+	const verificationState = contractVerificationState(result);
+	const ageLabel =
+		result.contract.age_days === undefined ? "age: unknown" : `age: ${result.contract.age_days}d`;
+	const txCountLabel =
+		result.contract.tx_count === undefined
+			? "txs: unknown"
+			: `txs: ${new Intl.NumberFormat("en-US").format(result.contract.tx_count)}`;
+	return ` Context: ${verificationState} · ${ageLabel} · ${txCountLabel}`;
+}
+
+function isChecksNoiseFinding(finding: Finding): boolean {
+	return (
+		finding.code === "CALLDATA_DECODED" ||
+		finding.code === "CALLDATA_UNKNOWN_SELECTOR" ||
+		finding.code === "CALLDATA_SIGNATURES" ||
+		finding.code === "CALLDATA_EMPTY" ||
+		finding.code === "VERIFIED" ||
+		finding.code === "KNOWN_PROTOCOL"
+	);
+}
+
+function collectChecksFindings(result: AnalysisResult): Finding[] {
+	const deduped = new Map<string, Finding>();
+	for (const finding of result.findings) {
+		if (isChecksNoiseFinding(finding)) continue;
+		const existing = deduped.get(finding.code);
+		if (!existing || compareFindingsBySignal(finding, existing) < 0) {
+			deduped.set(finding.code, finding);
+		}
+	}
+	return Array.from(deduped.values()).sort(compareFindingsBySignal);
+}
+
+function renderChecksSection(result: AnalysisResult, verboseFindings: boolean): string[] {
 	const lines: string[] = [];
 	lines.push(" 🧾 CHECKS");
+
+	const contextLine = formatChecksContextLine(result);
+	const verificationState = contractVerificationState(result);
+	if (verificationState === "verified") {
+		lines.push(COLORS.dim(contextLine));
+	} else {
+		lines.push(COLORS.warning(contextLine));
+	}
 
 	if (result.contract.verified) {
 		lines.push(COLORS.ok(" ✓ Source verified"));
@@ -575,35 +663,93 @@ function renderChecksSection(result: AnalysisResult): string[] {
 		lines.push(COLORS.ok(` ✓ Known protocol: ${cleanLabel(result.protocolMatch.name)}`));
 	}
 
-	const important = result.findings.filter(
-		(f) =>
-			f.level === "danger" ||
-			f.level === "warning" ||
-			f.code === "KNOWN_PHISHING" ||
-			f.code === "UPGRADEABLE" ||
-			f.code === "UNVERIFIED",
-	);
+	const ordered = collectChecksFindings(result);
+	const visible = verboseFindings ? ordered : ordered.slice(0, CHECKS_FINDINGS_CAP);
 
-	const deduped = new Map<string, Finding>();
-	for (const finding of important) {
-		if (finding.code === "CALLDATA_DECODED") continue;
-		deduped.set(finding.code, finding);
-	}
-
-	const ordered: Finding[] = [];
-	for (const code of ["KNOWN_PHISHING", "UNVERIFIED", "UPGRADEABLE", "NEW_CONTRACT"]) {
-		const f = deduped.get(code);
-		if (f) ordered.push(f);
-	}
-	for (const finding of deduped.values()) {
-		if (ordered.some((f) => f.code === finding.code)) continue;
-		ordered.push(finding);
-	}
-
-	for (const finding of ordered.slice(0, 4)) {
+	for (const finding of visible) {
 		lines.push(` ${formatFindingLine(finding)}`);
 	}
 
+	if (!verboseFindings && ordered.length > visible.length) {
+		const hiddenCount = ordered.length - visible.length;
+		lines.push(COLORS.dim(` +${hiddenCount} more (use --verbose)`));
+	}
+
+	return lines;
+}
+
+type EffectivePolicyDecision = {
+	decision: PolicyDecision;
+	reason?: string;
+};
+
+function resolvePolicyDecision(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy: PolicySummary,
+): EffectivePolicyDecision {
+	if (simulationIsUncertain(result, hasCalldata)) {
+		return { decision: "BLOCK", reason: "INCONCLUSIVE simulation" };
+	}
+	if (policy.decision) {
+		return { decision: policy.decision };
+	}
+	const nonAllowlisted = policy.nonAllowlisted ?? [];
+	if (nonAllowlisted.length > 0) {
+		return { decision: policy.mode === "wallet" ? "BLOCK" : "PROMPT" };
+	}
+	return { decision: "ALLOW" };
+}
+
+function buildRecommendationWhy(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy?: PolicySummary,
+): string {
+	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
+	if (simulationUncertain) {
+		return "Simulation is inconclusive, so balance and approval effects may be incomplete.";
+	}
+
+	if (policy) {
+		const effectivePolicy = resolvePolicyDecision(result, hasCalldata, policy);
+		const hasNonAllowlisted = (policy.nonAllowlisted?.length ?? 0) > 0;
+		if (effectivePolicy.decision === "BLOCK" && hasNonAllowlisted) {
+			return "Policy blocked a non-allowlisted endpoint in this transaction.";
+		}
+		if (effectivePolicy.decision === "PROMPT" && hasNonAllowlisted) {
+			return "Policy requires confirmation for a non-allowlisted endpoint.";
+		}
+	}
+
+	const topFinding = collectChecksFindings(result)[0];
+	if (topFinding) {
+		return cleanLabel(topFinding.message);
+	}
+
+	if (result.recommendation === "ok") {
+		return hasCalldata
+			? "No high-risk findings; simulation and intent checks look consistent."
+			: "No high-risk findings in the available contract checks.";
+	}
+	if (result.recommendation === "caution") {
+		return "Some risky patterns were detected and should be verified before signing.";
+	}
+	if (result.recommendation === "warning") {
+		return "Multiple risk signals need manual confirmation before signing.";
+	}
+	return "High-risk signals were detected in this transaction.";
+}
+
+function renderRecommendationSection(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy?: PolicySummary,
+): string[] {
+	const style = recommendationStyle(result.recommendation);
+	const lines: string[] = [];
+	lines.push(` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`);
+	lines.push(` Why: ${buildRecommendationWhy(result, hasCalldata, policy)}`);
 	return lines;
 }
 
@@ -638,28 +784,11 @@ function renderPolicySection(
 		lines.push(COLORS.warning(` ⚠️ Non-allowlisted ${endpoint.role}: ${label}`));
 	}
 
-	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
-
-	let decision = policy.decision;
-	let decisionReason: string | null = null;
-
-	if (!decision) {
-		if (nonAllowlisted.length > 0) {
-			decision = policy.mode === "wallet" ? "BLOCK" : "PROMPT";
-		} else {
-			decision = "ALLOW";
-		}
-	}
-
-	if (simulationUncertain) {
-		decision = "BLOCK";
-		decisionReason = "INCONCLUSIVE simulation";
-	}
-
-	const decisionLine = ` Policy decision: ${decision}${decisionReason ? ` (${decisionReason})` : ""}`;
-	if (decision === "ALLOW") {
+	const effectiveDecision = resolvePolicyDecision(result, hasCalldata, policy);
+	const decisionLine = ` Policy decision: ${effectiveDecision.decision}${effectiveDecision.reason ? ` (${effectiveDecision.reason})` : ""}`;
+	if (effectiveDecision.decision === "ALLOW") {
 		lines.push(COLORS.ok(decisionLine));
-	} else if (decision === "PROMPT") {
+	} else if (effectiveDecision.decision === "PROMPT") {
 		lines.push(COLORS.warning(decisionLine));
 	} else {
 		lines.push(COLORS.danger(decisionLine));
@@ -683,6 +812,57 @@ function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string
 	return lines;
 }
 
+function buildNextActionLine(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy?: PolicySummary,
+): string {
+	if (simulationIsUncertain(result, hasCalldata)) {
+		return "BLOCK — simulation is inconclusive; verify spender, recipient, and amounts first.";
+	}
+
+	if (policy) {
+		const effectivePolicy = resolvePolicyDecision(result, hasCalldata, policy);
+		if (effectivePolicy.decision === "BLOCK") {
+			return "BLOCK — policy rules did not allow this transaction.";
+		}
+		if (effectivePolicy.decision === "PROMPT") {
+			return "PROMPT + verify non-allowlisted spender/recipient before signing.";
+		}
+	}
+
+	if (result.recommendation === "danger") {
+		return "BLOCK — high-risk findings detected.";
+	}
+	if (result.recommendation === "warning") {
+		return "PROMPT + verify spender/recipient and approval scope before signing.";
+	}
+	if (result.recommendation === "caution") {
+		return "PROMPT + verify spender and amount before signing.";
+	}
+	return "SAFE to continue.";
+}
+
+function renderNextActionSection(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy?: PolicySummary,
+): string[] {
+	const lines: string[] = [];
+	lines.push(" 👉 NEXT ACTION");
+	const actionLine = ` Action: ${buildNextActionLine(result, hasCalldata, policy)}`;
+	if (actionLine.includes("BLOCK")) {
+		lines.push(COLORS.danger(actionLine));
+		return lines;
+	}
+	if (actionLine.includes("PROMPT")) {
+		lines.push(COLORS.warning(actionLine));
+		return lines;
+	}
+	lines.push(COLORS.ok(actionLine));
+	return lines;
+}
+
 type PolicyEndpointRole = "to" | "recipient" | "spender" | "operator";
 
 type PolicyDecision = "ALLOW" | "PROMPT" | "BLOCK";
@@ -700,11 +880,12 @@ export interface PolicySummary {
 
 export function renderResultBox(
 	result: AnalysisResult,
-	context?: { hasCalldata?: boolean; sender?: string; policy?: PolicySummary },
+	context?: { hasCalldata?: boolean; sender?: string; policy?: PolicySummary; verbose?: boolean },
 ): string {
 	const hasCalldata = context?.hasCalldata ?? false;
 	const actorLabel: "You" | "Sender" = context?.sender ? "You" : "Sender";
 	const protocol = formatProtocolDisplay(result);
+	const verboseFindings = context?.verbose ?? false;
 	const protocolSuffix =
 		result.protocolMatch?.slug && result.protocolMatch.slug !== protocol
 			? COLORS.dim(` (${result.protocolMatch.slug})`)
@@ -721,16 +902,20 @@ export function renderResultBox(
 
 	const sections = hasCalldata
 		? [
-				renderChecksSection(result),
+				renderRecommendationSection(result, hasCalldata, context?.policy),
+				renderChecksSection(result, verboseFindings),
 				...(context?.policy ? [renderPolicySection(result, hasCalldata, context.policy)] : []),
 				renderBalanceSection(result, hasCalldata, actorLabel),
 				renderApprovalsSection(result, hasCalldata),
 				renderRiskSection(result, hasCalldata),
+				renderNextActionSection(result, hasCalldata, context?.policy),
 			]
 		: [
-				renderChecksSection(result),
+				renderRecommendationSection(result, hasCalldata, context?.policy),
+				renderChecksSection(result, verboseFindings),
 				...(context?.policy ? [renderPolicySection(result, hasCalldata, context.policy)] : []),
 				renderRiskSection(result, hasCalldata),
+				renderNextActionSection(result, hasCalldata, context?.policy),
 			];
 
 	return renderUnifiedBox(headerLines, sections);

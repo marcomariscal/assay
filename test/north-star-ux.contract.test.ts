@@ -241,10 +241,12 @@ describe("north-star pre-sign UX (contract)", () => {
 
 			// 2) Required section headings exist and are ordered
 			const requiredHeadings = [
+				"🎯 RECOMMENDATION",
 				"🧾 CHECKS",
 				"💰 BALANCE CHANGES",
 				"🔐 APPROVALS",
 				"📊 RECOMMENDATION",
+				"👉 NEXT ACTION",
 			];
 			let lastIndex = -1;
 			for (const heading of requiredHeadings) {
@@ -253,6 +255,11 @@ describe("north-star pre-sign UX (contract)", () => {
 				expect(index).toBeGreaterThan(lastIndex);
 				lastIndex = index;
 			}
+
+			// 2b) CHECKS includes compact metadata context by default
+			expect(normalizedActual).toContain("Context:");
+			expect(normalizedActual).toContain("age:");
+			expect(normalizedActual).toContain("txs:");
 
 			// 3) Optional policy section (only when configured)
 			const checksIndex = normalizedActual.indexOf("🧾 CHECKS");
