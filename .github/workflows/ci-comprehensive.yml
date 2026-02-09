@@ -4,6 +4,12 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 8 * * *"
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-comprehensive-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   ci:
@@ -20,7 +26,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: 1.3.6
           cache: true
 
       - name: Install Foundry (anvil)
@@ -29,5 +35,27 @@ jobs:
           version: stable
 
       - run: bun install --frozen-lockfile
-      - run: bun run check
-      - run: bun test
+
+      - name: Run comprehensive checks
+        id: comprehensive
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        run: |
+          bun run check
+          bun run build
+          bun test
+
+      - name: Summarize non-blocking failure on PR
+        if: always() && steps.comprehensive.outcome == 'failure' && github.event_name == 'pull_request'
+        run: |
+          echo "::error title=Comprehensive CI failed::Non-blocking comprehensive CI failed. Review this workflow before merge/release."
+          {
+            echo "### ⚠️ Comprehensive CI failed (non-blocking)"
+            echo
+            echo "This workflow is configured as **best-effort on pull requests** so it remains visible without blocking merges."
+            echo
+            echo "Please review and address failures before release."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail comprehensive workflow outside PRs
+        if: steps.comprehensive.outcome == 'failure' && github.event_name != 'pull_request'
+        run: exit 1
