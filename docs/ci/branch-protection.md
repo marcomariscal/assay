@@ -5,6 +5,13 @@ Use this checklist to configure `main` immediately after merge.
 
 ## GitHub settings to click
 
+### 0) Security prerequisite (for dependency review)
+
+1. Open: `assay` repository → **Settings** → **Security & analysis**
+2. Ensure **Dependency graph** is enabled
+
+### 1) Branch protection rule
+
 1. Open: `assay` repository → **Settings** → **Branches**
 2. Under **Branch protection rules**, click **Add rule**
 3. In **Branch name pattern**, enter: `main`
