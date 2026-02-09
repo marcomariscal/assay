@@ -147,10 +147,14 @@ Tools exposed:
   - `0` — OK per configured checks (no findings at/above the built-in thresholds)
   - `1` — CAUTION/WARNING
   - `2` — DANGER
-- `assay scan`:
-  - `0` — recommendation is below `--fail-on`
-  - `2` — recommendation is >= `--fail-on` (default: `warning`)
-  - `1` — invalid flags or runtime error
+- `assay scan` (pass/fail style):
+  - `0` — pass (risk is below your `--fail-on` threshold)
+  - `2` — fail/block (risk meets or exceeds `--fail-on`)
+  - `1` — tool/usage error (bad flags or runtime failure)
+
+Example with default threshold (`--fail-on warning`):
+- `ok` / `caution` → `0`
+- `warning` / `danger` → `2`
 
 ## Environment Variables
 
