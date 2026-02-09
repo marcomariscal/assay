@@ -1,5 +1,5 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"requestId": "22222222-2222-4222-8222-222222222222",
 	"scan": {
 		"input": {
@@ -13,7 +13,6 @@
 		},
 		"intent": "Swap ETH → USDC",
 		"recommendation": "ok",
-		"confidence": 0.5,
 		"findings": [
 			{
 				"code": "VERIFIED",
@@ -32,16 +31,21 @@
 			"isContract": true,
 			"name": "Universal Router",
 			"isProxy": false,
-			"verifiedSource": true
+			"verifiedSource": true,
+			"confidence": "high"
 		},
 		"simulation": {
-			"success": false,
+			"status": "failed",
 			"revertReason": "Timeout",
-			"assetChanges": [],
-			"approvals": [],
-			"confidence": "low",
-			"notes": ["Simulation failed", "Hint: wallet fast-mode enabled; simulation skipped."],
-			"approvalsConfidence": "low"
+			"balances": {
+				"changes": [],
+				"confidence": "low"
+			},
+			"approvals": {
+				"changes": [],
+				"confidence": "low"
+			},
+			"notes": ["Simulation failed", "Hint: wallet fast-mode enabled; simulation skipped."]
 		}
 	}
 }

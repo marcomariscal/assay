@@ -31,7 +31,7 @@ function applySimulationDrainerHeuristics(
 	const findings: Finding[] = [...analysis.findings];
 	const originalCount = findings.length;
 
-	const unlimitedApprovals = simulation.approvals.filter((approval) => {
+	const unlimitedApprovals = simulation.approvals.changes.filter((approval) => {
 		if (approval.standard !== "erc20" && approval.standard !== "permit2") return false;
 		if (approval.amount === undefined) return false;
 		const isUnlimited =
@@ -55,7 +55,7 @@ function applySimulationDrainerHeuristics(
 		});
 	}
 
-	const approvalForAll = simulation.approvals.filter((approval) => {
+	const approvalForAll = simulation.approvals.changes.filter((approval) => {
 		if (approval.standard !== "erc721" && approval.standard !== "erc1155") return false;
 		if (approval.scope !== "all") return false;
 		if (approval.approved !== true) return false;
@@ -75,7 +75,9 @@ function applySimulationDrainerHeuristics(
 		});
 	}
 
-	const outgoingChanges = simulation.assetChanges.filter((change) => change.direction === "out");
+	const outgoingChanges = simulation.balances.changes.filter(
+		(change) => change.direction === "out",
+	);
 	const outgoingCounterparties = uniqueLowercased(
 		outgoingChanges
 			.map((change) => change.counterparty)
@@ -125,12 +127,16 @@ export function buildSimulationNotRun(input: ScanInput["calldata"]): BalanceSimu
 	if (!input) {
 		return {
 			success: false,
-			revertReason: "Simulation not run",
-			assetChanges: [],
-			approvals: [],
-			confidence: "low",
-			approvalsConfidence: "low",
-			notes: ["Simulation not run"],
+			revertReason: "No calldata provided",
+			balances: {
+				changes: [],
+				confidence: "none",
+			},
+			approvals: {
+				changes: [],
+				confidence: "none",
+			},
+			notes: ["No calldata provided; simulation not applicable."],
 		};
 	}
 	const notes: string[] = ["Simulation not run"];
@@ -150,10 +156,14 @@ export function buildSimulationNotRun(input: ScanInput["calldata"]): BalanceSimu
 	return {
 		success: false,
 		revertReason: "Simulation not run",
-		assetChanges: [],
-		approvals: [],
-		confidence: "low",
-		approvalsConfidence: "low",
+		balances: {
+			changes: [],
+			confidence: "none",
+		},
+		approvals: {
+			changes: [],
+			confidence: "none",
+		},
 		notes,
 	};
 }

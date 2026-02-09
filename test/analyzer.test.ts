@@ -154,8 +154,7 @@ describe("analyzer", () => {
 				// no config = no etherscan key
 			);
 
-			expect(result.confidence.level).toBe("medium");
-			expect(result.confidence.reasons).toContain("no etherscan key - limited data");
+			expect(result.contract.confidence).toBe("medium");
 		}, 120000);
 	});
 });

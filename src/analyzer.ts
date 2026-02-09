@@ -10,7 +10,6 @@ import * as sourcify from "./providers/sourcify";
 import type {
 	AnalysisResult,
 	Chain,
-	Confidence,
 	Config,
 	ContractInfo,
 	Finding,
@@ -79,7 +78,6 @@ export async function analyze(
 	options?: AnalyzeOptions,
 ): Promise<AnalysisResult> {
 	const findings: Finding[] = [];
-	const confidenceReasons: string[] = [];
 
 	const deps = options?.deps ?? DEFAULT_DEPS;
 	const mode = options?.mode ?? "default";
@@ -189,6 +187,7 @@ export async function analyze(
 				address: addr,
 				chain,
 				verified: false,
+				confidence: "high",
 				is_proxy: false,
 			},
 			findings: [
@@ -198,7 +197,6 @@ export async function analyze(
 					message: "Address is not a contract (EOA or empty)",
 				},
 			],
-			confidence: { level: "high", reasons: [] },
 			recommendation: "caution",
 		};
 	}
@@ -306,8 +304,6 @@ export async function analyze(
 				tx_count = etherscanData.tx_count;
 			}
 		}
-	} else {
-		confidenceReasons.push("no etherscan key - limited data");
 	}
 
 	// 4. Proxy detection
@@ -550,15 +546,12 @@ export async function analyze(
 		}
 	}
 
-	// Determine confidence level
-	let confidenceLevel: Confidence["level"] = "high";
+	// Determine contract confidence level
+	let contractConfidence: ContractInfo["confidence"] = "high";
 	if (!verified) {
-		confidenceLevel = verificationKnown ? "low" : "medium";
-		confidenceReasons.push(
-			verificationKnown ? "source not verified" : "source verification unknown",
-		);
+		contractConfidence = verificationKnown ? "low" : "medium";
 	} else if (!etherscanKey) {
-		confidenceLevel = "medium";
+		contractConfidence = "medium";
 	}
 
 	// Determine recommendation
@@ -578,6 +571,7 @@ export async function analyze(
 		proxy_name: contractName,
 		implementation_name: implementationName,
 		verified,
+		confidence: contractConfidence,
 		age_days,
 		tx_count,
 		is_proxy: proxyInfo.is_proxy,
@@ -590,10 +584,6 @@ export async function analyze(
 		protocol: protocolLabel,
 		protocolMatch: protocolMatch ?? undefined,
 		findings,
-		confidence: {
-			level: confidenceLevel,
-			reasons: confidenceReasons,
-		},
 		recommendation,
 	};
 }

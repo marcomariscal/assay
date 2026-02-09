@@ -27,7 +27,6 @@ export type {
 	AssetChange,
 	BalanceSimulationResult,
 	Chain,
-	Confidence,
 	Config,
 	ContractInfo,
 	Finding,

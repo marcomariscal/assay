@@ -10,8 +10,8 @@ import type {
 	AssetChange,
 	BalanceSimulationResult,
 	Chain,
-	ConfidenceLevel,
 	Config,
+	SimulationConfidenceLevel,
 } from "../types";
 import { AnvilUnavailableError, getAnvilClient } from "./anvil";
 import { buildApprovalDiffs } from "./approval-diffs";
@@ -235,8 +235,8 @@ async function simulateWithAnvilOnce(
 	}
 
 	const notes: string[] = [];
-	let balanceConfidence: ConfidenceLevel = "high";
-	let approvalsConfidence: ConfidenceLevel = "high";
+	let balanceConfidence: SimulationConfidenceLevel = "high";
+	let approvalsConfidence: SimulationConfidenceLevel = "high";
 
 	return await instance.runExclusive(async () => {
 		const warmResetResult = await instance.resetFork();
@@ -405,10 +405,14 @@ async function simulateWithAnvilOnce(
 				gasUsed: receipt.gasUsed,
 				effectiveGasPrice: receipt.effectiveGasPrice,
 				nativeDiff,
-				assetChanges: enrichedChanges,
-				approvals: enrichedApprovals,
-				confidence: balanceConfidence,
-				approvalsConfidence,
+				balances: {
+					changes: enrichedChanges,
+					confidence: balanceConfidence,
+				},
+				approvals: {
+					changes: enrichedApprovals,
+					confidence: approvalsConfidence,
+				},
 				notes,
 			};
 		} catch (error) {
@@ -438,8 +442,8 @@ export interface WalletFastSimulationOptions {
 	txValue: bigint;
 	timings?: TimingStore;
 	notes: string[];
-	balanceConfidence: ConfidenceLevel;
-	approvalsConfidence: ConfidenceLevel;
+	balanceConfidence: SimulationConfidenceLevel;
+	approvalsConfidence: SimulationConfidenceLevel;
 	budgetMs: number;
 }
 
@@ -658,10 +662,14 @@ export async function simulateWithAnvilWalletFast(
 		gasUsed: receipt.gasUsed,
 		effectiveGasPrice: receipt.effectiveGasPrice,
 		nativeDiff,
-		assetChanges: enrichedChanges,
-		approvals: enrichedApprovals,
-		confidence: balanceConfidence,
-		approvalsConfidence,
+		balances: {
+			changes: enrichedChanges,
+			confidence: balanceConfidence,
+		},
+		approvals: {
+			changes: enrichedApprovals,
+			confidence: approvalsConfidence,
+		},
 		notes: options.notes,
 	};
 }
@@ -678,18 +686,22 @@ async function checkContractAccountOnFork(client: AnvilClient, address: Address)
 function simulateFailure(
 	message: string,
 	notes: string[],
-	balanceConfidence: ConfidenceLevel,
-	approvalsConfidence: ConfidenceLevel,
+	balanceConfidence: SimulationConfidenceLevel,
+	approvalsConfidence: SimulationConfidenceLevel,
 	hints: string[] = [],
 ): BalanceSimulationResult {
 	const mergedNotes = [...notes, message, ...hints];
 	return {
 		success: false,
 		revertReason: message,
-		assetChanges: [],
-		approvals: [],
-		confidence: minConfidence(balanceConfidence, "low"),
-		approvalsConfidence: minConfidence(approvalsConfidence, "low"),
+		balances: {
+			changes: [],
+			confidence: minConfidence(balanceConfidence, "low"),
+		},
+		approvals: {
+			changes: [],
+			confidence: minConfidence(approvalsConfidence, "low"),
+		},
 		notes: mergedNotes,
 	};
 }
@@ -787,10 +799,14 @@ function simulateHeuristic(
 		success: false,
 		revertReason: reason,
 		nativeDiff,
-		assetChanges,
-		approvals,
-		confidence: "low",
-		approvalsConfidence: "low",
+		balances: {
+			changes: assetChanges,
+			confidence: "low",
+		},
+		approvals: {
+			changes: approvals,
+			confidence: "low",
+		},
 		notes,
 	};
 }
@@ -1167,7 +1183,11 @@ function buildNftChanges(transfers: ParsedTransfer[], owner: Address): AssetChan
 	return changes;
 }
 
-function minConfidence(current: ConfidenceLevel, incoming: ConfidenceLevel): ConfidenceLevel {
+function minConfidence(
+	current: SimulationConfidenceLevel,
+	incoming: SimulationConfidenceLevel,
+): SimulationConfidenceLevel {
+	if (current === "none" || incoming === "none") return "none";
 	if (current === "low" || incoming === "low") return "low";
 	if (current === "medium" || incoming === "medium") return "medium";
 	return "high";

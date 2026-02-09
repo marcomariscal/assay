@@ -50,7 +50,6 @@ describe("analyzer verificationKnown", () => {
 		expect(unverified).toBeTruthy();
 		expect(unverified?.level).toBe("danger");
 
-		expect(result.confidence.level).toBe("low");
-		expect(result.confidence.reasons).toContain("source not verified");
+		expect(result.contract.confidence).toBe("low");
 	});
 });

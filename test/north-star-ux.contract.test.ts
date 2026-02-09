@@ -11,6 +11,7 @@ import type {
 	Finding,
 	FindingLevel,
 	Recommendation,
+	SimulationConfidenceLevel,
 } from "../src/types";
 
 const recordingsDir = path.join(import.meta.dir, "fixtures", "recordings");
@@ -69,6 +70,10 @@ function isConfidenceLevel(value: unknown): value is ConfidenceLevel {
 	return value === "high" || value === "medium" || value === "low";
 }
 
+function isSimulationConfidenceLevel(value: unknown): value is SimulationConfidenceLevel {
+	return value === "high" || value === "medium" || value === "low" || value === "none";
+}
+
 function isFinding(value: unknown): value is Finding {
 	if (!isRecord(value)) return false;
 	if (!isFindingLevel(value.level)) return false;
@@ -82,10 +87,12 @@ function isFinding(value: unknown): value is Finding {
 function isBalanceSimulationResult(value: unknown): value is BalanceSimulationResult {
 	if (!isRecord(value)) return false;
 	if (typeof value.success !== "boolean") return false;
-	if (!Array.isArray(value.assetChanges)) return false;
-	if (!Array.isArray(value.approvals)) return false;
-	if (!isConfidenceLevel(value.confidence)) return false;
-	if (!isConfidenceLevel(value.approvalsConfidence)) return false;
+	if (!isRecord(value.balances)) return false;
+	if (!Array.isArray(value.balances.changes)) return false;
+	if (!isSimulationConfidenceLevel(value.balances.confidence)) return false;
+	if (!isRecord(value.approvals)) return false;
+	if (!Array.isArray(value.approvals.changes)) return false;
+	if (!isSimulationConfidenceLevel(value.approvals.confidence)) return false;
 	if (!Array.isArray(value.notes)) return false;
 	if (
 		"revertReason" in value &&
@@ -104,12 +111,10 @@ function isAnalysisResult(value: unknown): value is AnalysisResult {
 		return false;
 	if (!isChain(value.contract.chain)) return false;
 	if (typeof value.contract.verified !== "boolean") return false;
+	if (!isConfidenceLevel(value.contract.confidence)) return false;
 	if (typeof value.contract.is_proxy !== "boolean") return false;
 
 	if (!Array.isArray(value.findings) || !value.findings.every(isFinding)) return false;
-	if (!isRecord(value.confidence)) return false;
-	if (!isConfidenceLevel(value.confidence.level)) return false;
-	if (!Array.isArray(value.confidence.reasons)) return false;
 	if (!isRecommendation(value.recommendation)) return false;
 	if ("intent" in value && value.intent !== undefined && typeof value.intent !== "string")
 		return false;
@@ -200,7 +205,7 @@ function isRenderContext(value: unknown): value is RenderContext {
 
 function isAnalyzeResponse(value: unknown): value is AnalyzeResponse {
 	if (!isRecord(value)) return false;
-	if (value.schemaVersion !== 1) return false;
+	if (value.schemaVersion !== 2) return false;
 	if (typeof value.requestId !== "string") return false;
 	if (!isRecord(value.scan)) return false;
 	return true;
@@ -260,8 +265,8 @@ describe("north-star pre-sign UX (contract)", () => {
 				Boolean(context.hasCalldata) &&
 				(!analysis.simulation ||
 					!analysis.simulation.success ||
-					analysis.simulation.confidence !== "high" ||
-					analysis.simulation.approvalsConfidence !== "high");
+					analysis.simulation.balances.confidence !== "high" ||
+					analysis.simulation.approvals.confidence !== "high");
 			if (simulationUncertain) {
 				expect(normalizedActual).toContain("INCONCLUSIVE");
 			} else {

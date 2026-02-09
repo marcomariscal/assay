@@ -54,7 +54,7 @@ function findAnalyzeResponseInToolResult(result: unknown): { schemaVersion: numb
 			const parsed = JSON.parse(trimmed);
 			if (!isRecord(parsed)) continue;
 			const schemaVersion = parsed.schemaVersion;
-			if (schemaVersion === 1) return { schemaVersion: 1 };
+			if (schemaVersion === 2) return { schemaVersion: 2 };
 		} catch {
 			// ignore
 		}
@@ -168,7 +168,7 @@ describe("mcp server (unit)", () => {
 
 			const result = isRecord(call) ? call.result : undefined;
 			const found = findAnalyzeResponseInToolResult(result);
-			expect(found?.schemaVersion).toBe(1);
+			expect(found?.schemaVersion).toBe(2);
 		} finally {
 			if (webWriter) {
 				try {

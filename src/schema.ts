@@ -4,7 +4,7 @@ import type { Recommendation as BaseRecommendation } from "./types";
 /**
  * Stable JSON schema version for `assay scan --format json` and `POST /v1/scan`.
  */
-export const ASSAY_SCHEMA_VERSION: 1 = 1;
+export const ASSAY_SCHEMA_VERSION: 2 = 2;
 
 export type Recommendation = BaseRecommendation;
 
@@ -43,16 +43,22 @@ export interface ApprovalChange {
 	decimals?: number;
 }
 
+export type ContractConfidence = "high" | "medium" | "low";
+export type SimulationConfidence = "high" | "medium" | "low" | "none";
+
+export interface SimulationSection<TChange> {
+	changes: TChange[];
+	confidence: SimulationConfidence;
+}
+
 export interface BalanceSimulationResult {
-	success: boolean;
+	status: "success" | "failed" | "not_run";
 	revertReason?: string;
 	gasUsed?: string;
 	effectiveGasPrice?: string;
 	nativeDiff?: string;
-	assetChanges: AssetChange[];
-	approvals: ApprovalChange[];
-	confidence: "high" | "medium" | "low";
-	approvalsConfidence: "high" | "medium" | "low";
+	balances: SimulationSection<AssetChange>;
+	approvals: SimulationSection<ApprovalChange>;
 	notes: string[];
 }
 
@@ -65,6 +71,7 @@ export interface ContractInfo {
 	isProxy?: boolean;
 	implementation?: string;
 	verifiedSource?: boolean;
+	confidence: ContractConfidence;
 	tags?: string[];
 }
 
@@ -85,20 +92,18 @@ export interface ScanResult {
 	input: ScanInput;
 	intent?: string;
 	recommendation: Recommendation;
-	confidence: number;
 	findings: ScanFinding[];
 	contract: ContractInfo;
 	simulation?: BalanceSimulationResult;
 }
 
 export interface AnalyzeResponse {
-	schemaVersion: 1;
+	schemaVersion: 2;
 	requestId: string;
 	scan: ScanResult;
 }
 
 const recommendationSchema = z.enum(["ok", "caution", "warning", "danger"]);
-const confidenceLevelSchema = z.enum(["high", "medium", "low"]);
 
 const addressSchema = z.string().refine((value) => isAddress(value), {
 	message: "Invalid address",
@@ -180,24 +185,28 @@ const approvalChangeSchema = z
 	})
 	.strict();
 
+const simulationConfidenceSchema = z.enum(["high", "medium", "low", "none"]);
+
+const simulationSectionSchema = <T extends z.ZodTypeAny>(changeSchema: T) =>
+	z
+		.object({
+			changes: z.array(changeSchema),
+			confidence: simulationConfidenceSchema,
+		})
+		.strict();
+
 const balanceSimulationSchema = z
 	.object({
-		success: z.boolean(),
+		status: z.enum(["success", "failed", "not_run"]),
 		revertReason: z.string().optional(),
 		gasUsed: z.string().optional(),
 		effectiveGasPrice: z.string().optional(),
 		nativeDiff: z.string().optional(),
-		assetChanges: z.array(assetChangeSchema),
-		approvals: z.array(approvalChangeSchema),
-		confidence: confidenceLevelSchema,
-		approvalsConfidence: confidenceLevelSchema.optional(),
+		balances: simulationSectionSchema(assetChangeSchema),
+		approvals: simulationSectionSchema(approvalChangeSchema),
 		notes: z.array(z.string()),
 	})
-	.strict()
-	.transform((simulation) => ({
-		...simulation,
-		approvalsConfidence: simulation.approvalsConfidence ?? simulation.confidence,
-	}));
+	.strict();
 
 export const contractInfoSchema = z
 	.object({
@@ -209,6 +218,7 @@ export const contractInfoSchema = z
 		isProxy: z.boolean().optional(),
 		implementation: addressSchema.optional(),
 		verifiedSource: z.boolean().optional(),
+		confidence: z.enum(["high", "medium", "low"]),
 		tags: z.array(z.string()).optional(),
 	})
 	.strict();
@@ -218,7 +228,6 @@ export const scanResultSchema = z
 		input: scanInputSchema,
 		intent: z.string().min(1).optional(),
 		recommendation: recommendationSchema,
-		confidence: z.number().min(0).max(1),
 		findings: z.array(scanFindingSchema),
 		contract: contractInfoSchema,
 		simulation: balanceSimulationSchema.optional(),

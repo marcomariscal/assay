@@ -265,7 +265,7 @@ function improveApprovalIntentFromSimulation(result: AnalysisResult, base: strin
 	if (!result.simulation?.success) return null;
 	if (!base.toLowerCase().startsWith("approve")) return null;
 
-	const approval = result.simulation.approvals.find(
+	const approval = result.simulation.approvals.changes.find(
 		(a) => (a.standard === "erc20" || a.standard === "permit2") && a.scope !== "all",
 	);
 	if (!approval) return null;
@@ -359,8 +359,8 @@ function simulationIsUncertain(result: AnalysisResult, hasCalldata: boolean): bo
 	if (!hasCalldata) return false;
 	const simulation = result.simulation;
 	if (!simulation || !simulation.success) return true;
-	if (simulation.confidence !== "high") return true;
-	if (simulation.approvalsConfidence !== "high") return true;
+	if (simulation.balances.confidence !== "high") return true;
+	if (simulation.approvals.confidence !== "high") return true;
 	return false;
 }
 
@@ -370,7 +370,7 @@ function renderBalanceSection(
 	actorLabel: "You" | "Sender",
 ): string[] {
 	const lines: string[] = [];
-	const confidence = result.simulation?.confidence;
+	const confidence = result.simulation?.balances.confidence;
 	lines.push(` 💰 BALANCE CHANGES${sectionConfidenceSuffix(confidence)}`);
 
 	if (!hasCalldata) {
@@ -378,12 +378,12 @@ function renderBalanceSection(
 		return lines;
 	}
 	if (!result.simulation) {
-		lines.push(COLORS.warning(" - Simulation failed (not run)"));
+		lines.push(COLORS.warning(" - Simulation data unavailable; treat this as higher risk."));
 		return lines;
 	}
 	if (!result.simulation.success) {
 		const detail = result.simulation.revertReason ? ` (${result.simulation.revertReason})` : "";
-		lines.push(COLORS.warning(` - Simulation failed${detail}`));
+		lines.push(COLORS.warning(` - Simulation did not complete${detail}`));
 		const hints = extractSimulationHints(result.simulation.notes);
 		for (const hint of hints) {
 			lines.push(COLORS.warning(` - ${hint}`));
@@ -401,8 +401,13 @@ function renderBalanceSection(
 
 	const changes = buildBalanceChangeItems(result.simulation, result.contract.chain);
 	if (changes.length === 0) {
-		const line = " - No balance changes detected";
-		lines.push(result.simulation.confidence === "high" ? COLORS.dim(line) : COLORS.warning(line));
+		if (result.simulation.balances.confidence === "high") {
+			lines.push(COLORS.dim(" - No balance changes detected"));
+		} else {
+			lines.push(
+				COLORS.warning(" - Could not verify all balance changes; treat this as higher risk."),
+			);
+		}
 		return lines;
 	}
 
@@ -435,8 +440,8 @@ function buildApprovalItems(result: AnalysisResult): RenderedApprovalItem[] {
 	const items = new Map<string, RenderedApprovalItem>();
 	const simulation = result.simulation;
 
-	if (simulation && simulation.approvals.length > 0) {
-		for (const approval of simulation.approvals) {
+	if (simulation && simulation.approvals.changes.length > 0) {
+		for (const approval of simulation.approvals.changes) {
 			const item = formatSimulationApproval(approval, result.contract.chain);
 			items.set(item.key.toLowerCase(), { ...item, source: "simulation" });
 		}
@@ -476,7 +481,7 @@ function formatApprovalAmount(amount: bigint, decimals?: number): string {
 
 function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): string[] {
 	const lines: string[] = [];
-	const confidence = result.simulation?.approvalsConfidence;
+	const confidence = result.simulation?.approvals.confidence;
 	lines.push(` 🔐 APPROVALS${sectionConfidenceSuffix(confidence)}`);
 	if (!hasCalldata) {
 		lines.push(COLORS.dim(" - Not available (no calldata)"));
@@ -487,12 +492,20 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 	const simulationFailed = !result.simulation || !result.simulation.success;
 	if (simulationFailed) {
 		if (approvals.length === 0) {
-			lines.push(COLORS.warning(" - Approvals unknown (simulation failed)"));
+			lines.push(
+				COLORS.warning(" - Could not verify approval changes; treat this as higher risk."),
+			);
 			return lines;
 		}
-		lines.push(COLORS.warning(" - Partial approvals (simulation failed):"));
+		lines.push(
+			COLORS.warning(" - Partial approvals observed; treat unknown approvals as higher risk:"),
+		);
 	}
 	if (approvals.length === 0) {
+		if (result.simulation && result.simulation.approvals.confidence !== "high") {
+			lines.push(COLORS.warning(" - Approval coverage is incomplete; treat this as higher risk."));
+			return lines;
+		}
 		lines.push(COLORS.dim(" - None detected"));
 		return lines;
 	}
@@ -636,10 +649,10 @@ function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string
 	if (simulationUncertain) {
 		const simulation = result.simulation;
 		const reason = !simulation
-			? "simulation not run"
+			? "Simulation data is incomplete; recommendation already reflects this uncertainty."
 			: !simulation.success
 				? `simulation failed${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`
-				: `balances ${simulation.confidence} confidence, approvals ${simulation.approvalsConfidence} confidence`;
+				: `balances ${simulation.balances.confidence} confidence, approvals ${simulation.approvals.confidence} confidence`;
 		lines.push(COLORS.warning(` ⚠️ INCONCLUSIVE: ${reason} — balances/approvals may be unknown`));
 	}
 
@@ -705,13 +718,13 @@ function buildBalanceChangeItems(simulation: BalanceSimulationResult, chain: Cha
 		items.push(formatSignedAmount(simulation.nativeDiff, 18, nativeSymbol(chain)));
 	}
 
-	const erc20Net = aggregateErc20(simulation.assetChanges);
+	const erc20Net = aggregateErc20(simulation.balances.changes);
 	for (const change of erc20Net) {
 		const symbol = change.symbol ?? shortenAddress(change.address);
 		items.push(formatSignedAmount(change.amount, change.decimals, symbol));
 	}
 
-	for (const change of simulation.assetChanges) {
+	for (const change of simulation.balances.changes) {
 		if (change.assetType === "erc20") continue;
 		const item = formatNftChange(change);
 		if (item) {
@@ -763,7 +776,7 @@ function aggregateErc20(
 }
 
 function formatSimulationApproval(
-	approval: BalanceSimulationResult["approvals"][number],
+	approval: BalanceSimulationResult["approvals"]["changes"][number],
 	chain: Chain,
 ): {
 	text: string;
@@ -945,7 +958,9 @@ function formatAllowanceAmountLabel(
 	return formatTokenAmount(amount, decimals);
 }
 
-function formatApprovalAmountLabel(approval: BalanceSimulationResult["approvals"][number]): string {
+function formatApprovalAmountLabel(
+	approval: BalanceSimulationResult["approvals"]["changes"][number],
+): string {
 	if (approval.amount === undefined) return "UNKNOWN";
 	return formatAllowanceAmountLabel(approval.standard, approval.amount, approval.decimals);
 }
