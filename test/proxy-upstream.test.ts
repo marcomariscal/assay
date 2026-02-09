@@ -3,8 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
+	ASSAY_UPSTREAM_ENV,
 	formatMissingUpstreamError,
-	RUGSCAN_UPSTREAM_ENV,
 	resolveProxyUpstreamUrl,
 } from "../src/cli/proxy-upstream";
 import { saveRpcUrl } from "../src/config";
@@ -17,7 +17,7 @@ function setEnv(key: string, value: string | undefined) {
 	process.env[key] = value;
 }
 
-describe("rugscan proxy upstream", () => {
+describe("assay proxy upstream", () => {
 	test("resolution order: cli > env > config", () => {
 		const config = {
 			rpcUrls: {
@@ -54,36 +54,36 @@ describe("rugscan proxy upstream", () => {
 	});
 
 	test("missing upstream error message shows env var + config path", async () => {
-		const tempDir = await mkdtemp(path.join(os.tmpdir(), "rugscan-upstream-"));
+		const tempDir = await mkdtemp(path.join(os.tmpdir(), "assay-upstream-"));
 		const tempConfigPath = path.join(tempDir, "config.json");
 
 		const previous = {
-			RUGSCAN_CONFIG: process.env.RUGSCAN_CONFIG,
+			ASSAY_CONFIG: process.env.ASSAY_CONFIG,
 		};
 
 		try {
-			setEnv("RUGSCAN_CONFIG", tempConfigPath);
+			setEnv("ASSAY_CONFIG", tempConfigPath);
 
 			const message = formatMissingUpstreamError({ chainArg: "ethereum" });
-			expect(message).toContain(RUGSCAN_UPSTREAM_ENV);
+			expect(message).toContain(ASSAY_UPSTREAM_ENV);
 			expect(message).toContain(tempConfigPath);
 			expect(message).toContain("rpcUrls");
 		} finally {
-			setEnv("RUGSCAN_CONFIG", previous.RUGSCAN_CONFIG);
+			setEnv("ASSAY_CONFIG", previous.ASSAY_CONFIG);
 			await rm(tempDir, { recursive: true, force: true });
 		}
 	});
 
 	test("--save persists rpcUrls.ethereum without clobbering other keys", async () => {
-		const tempDir = await mkdtemp(path.join(os.tmpdir(), "rugscan-save-"));
+		const tempDir = await mkdtemp(path.join(os.tmpdir(), "assay-save-"));
 		const tempConfigPath = path.join(tempDir, "config.json");
 
 		const previous = {
-			RUGSCAN_CONFIG: process.env.RUGSCAN_CONFIG,
+			ASSAY_CONFIG: process.env.ASSAY_CONFIG,
 		};
 
 		try {
-			setEnv("RUGSCAN_CONFIG", tempConfigPath);
+			setEnv("ASSAY_CONFIG", tempConfigPath);
 
 			await writeFile(
 				tempConfigPath,
@@ -123,7 +123,7 @@ describe("rugscan proxy upstream", () => {
 
 			expect(rpcUrls.ethereum).toBe("https://new-eth.example");
 		} finally {
-			setEnv("RUGSCAN_CONFIG", previous.RUGSCAN_CONFIG);
+			setEnv("ASSAY_CONFIG", previous.ASSAY_CONFIG);
 			await rm(tempDir, { recursive: true, force: true });
 		}
 	});

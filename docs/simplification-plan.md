@@ -1,4 +1,4 @@
-# Rugscan Simplification Plan
+# Assay Simplification Plan
 
 ## Assumptions
 - Primary product is a local CLI for quick contract checks.
@@ -71,7 +71,7 @@ Goal: one-line command, three-line output, clear severity.
 
 Command:
 ```
-rugscan check 0x...
+assay check 0x...
 ```
 
 Example outputs:
@@ -88,8 +88,8 @@ Behavior:
 - Optional flags: `--chain`, `--json` (if needed later).
 
 Notes:
-- Keep `rugscan approval` for explicit approval checks.
-- Remove `rugscan analyze`/`scan` once `check` exists.
+- Keep `assay approval` for explicit approval checks.
+- Remove `assay analyze`/`scan` once `check` exists.
 
 ## 99% Coverage (What's Missing)
 

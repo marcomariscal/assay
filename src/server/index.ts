@@ -14,7 +14,7 @@ export interface ServerOptions {
 }
 
 export function createScanHandler(options: ServerOptions = {}) {
-	const apiKey = options.apiKey ?? process.env.RUGSCAN_API_KEY;
+	const apiKey = options.apiKey ?? process.env.ASSAY_API_KEY;
 	const scanFn = options.scanFn ?? scan;
 	const configPromise = options.config ? Promise.resolve(options.config) : loadConfig();
 

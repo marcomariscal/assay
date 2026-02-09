@@ -2,7 +2,7 @@ import { resolveUserConfigPathForWrite } from "../config";
 import { resolveScanChain } from "../scan";
 import type { Chain, Config } from "../types";
 
-export const RUGSCAN_UPSTREAM_ENV = "RUGSCAN_UPSTREAM";
+export const ASSAY_UPSTREAM_ENV = "ASSAY_UPSTREAM";
 
 export type UpstreamSource = "cli" | "env" | "config";
 
@@ -60,9 +60,9 @@ export function formatMissingUpstreamError(options: { chainArg: string | undefin
 		"",
 		"Set it using one of:",
 		"  1) CLI flag:",
-		"     rugscan proxy --upstream https://your-rpc.example",
+		"     assay proxy --upstream https://your-rpc.example",
 		"  2) Environment variable:",
-		`     export ${RUGSCAN_UPSTREAM_ENV}=https://your-rpc.example`,
+		`     export ${ASSAY_UPSTREAM_ENV}=https://your-rpc.example`,
 		"  3) Config file:",
 		`     ${configPath}`,
 		`     { "rpcUrls": { "${chainKey}": "https://your-rpc.example" } }`,

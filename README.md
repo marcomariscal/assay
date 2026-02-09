@@ -1,4 +1,4 @@
-# rugscan
+# assay
 
 Pre-transaction security analysis for EVM contracts. Know what you're signing before you sign it.
 
@@ -14,16 +14,16 @@ Pre-transaction security analysis for EVM contracts. Know what you're signing be
 
 ## Install
 
-> Note: rugscan is not published to npm yet.
+> Note: assay is not published to npm yet.
 
 For now, run from source:
 
 ```bash
-git clone https://github.com/marcomariscal/rugscan
-cd rugscan
+git clone <REPO_URL>
+cd <REPO_DIR>
 bun install
 
-# examples below use `rugscan ...`; when running from source, replace with:
+# examples below use `assay ...`; when running from source, replace with:
 # bun run src/cli/index.ts ...
 ```
 
@@ -31,34 +31,34 @@ bun install
 
 ```bash
 # Basic analysis
-rugscan analyze 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
+assay analyze 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
 
 # Approval analysis
-rugscan approval --token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 \
+assay approval --token 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48 \
   --spender 0xE592427A0AEce92De3Edee1F18E0157C05861564 \
   --amount max \
   --expected 0xE592427A0AEce92De3Edee1F18E0157C05861564
 
 # Different chain
-rugscan analyze 0x1234... --chain base
+assay analyze 0x1234... --chain base
 ```
 
 ## CLI Usage
 
-Run `rugscan --help` for the full CLI reference.
+Run `assay --help` for the full CLI reference.
 
 ```bash
-rugscan analyze <address> [options]
-rugscan scan [address] [options]
-rugscan safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline]
-rugscan approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>]
-rugscan proxy [options]
-rugscan mcp
+assay analyze <address> [options]
+assay scan [address] [options]
+assay safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline]
+assay approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>]
+assay proxy [options]
+assay mcp
 ```
 
-### `rugscan scan`
+### `assay scan`
 
-`rugscan scan` analyzes either a contract address or an unsigned transaction (calldata) before signing.
+`assay scan` analyzes either a contract address or an unsigned transaction (calldata) before signing.
 
 Flags:
 - `--format text|json|sarif` (default: `text`)
@@ -70,7 +70,7 @@ Flags:
   - `-` to read from stdin
 - `--to/--from/--value` — when `--calldata` is raw hex (or when providing tx fields directly)
 - `--no-sim` — disable Anvil simulation
-  - By default, rugscan will try to run an **Anvil fork simulation** for transaction inputs. Simulation success + decoded intent is the primary signal when available.
+  - By default, assay will try to run an **Anvil fork simulation** for transaction inputs. Simulation success + decoded intent is the primary signal when available.
 - `--fail-on <caution|warning|danger>` — set exit threshold (default: `warning`)
 - `--output <path|->` (default: `-`)
 - `--quiet` — suppress progress/logging
@@ -78,22 +78,22 @@ Flags:
 Examples:
 
 ```bash
-rugscan scan 0x1234...
-rugscan scan --calldata @tx.json --format json
-cat tx.json | rugscan scan --calldata - --format sarif
+assay scan 0x1234...
+assay scan --calldata @tx.json --format json
+cat tx.json | assay scan --calldata - --format sarif
 
 # MetaMask "Hex Data" (raw calldata)
-rugscan scan --calldata 0x... --to 0x... --from 0x... --value 0 --format json
+assay scan --calldata 0x... --to 0x... --from 0x... --value 0 --format json
 ```
 
-### `rugscan proxy`
+### `assay proxy`
 
-`rugscan proxy` runs a local JSON-RPC proxy for wallets. It intercepts send-transaction calls, runs `rugscan scan`, and blocks or prompts based on risk.
+`assay proxy` runs a local JSON-RPC proxy for wallets. It intercepts send-transaction calls, runs `assay scan`, and blocks or prompts based on risk.
 
 ```bash
-rugscan proxy --upstream https://... --chain ethereum
-rugscan proxy --wallet
-rugscan proxy --record-dir ./rugscan-recordings
+assay proxy --upstream https://... --chain ethereum
+assay proxy --wallet
+assay proxy --record-dir ./assay-recordings
 ```
 
 Notes:
@@ -115,12 +115,12 @@ Notes:
 Run an MCP server over stdio:
 
 ```bash
-rugscan mcp
+assay mcp
 ```
 
 Tools exposed:
-- `rugscan.analyzeTransaction`
-- `rugscan.analyzeAddress`
+- `assay.analyzeTransaction`
+- `assay.analyzeAddress`
 
 ## Output
 
@@ -144,11 +144,11 @@ Tools exposed:
 ```
 
 **Exit codes (not a guarantee):**
-- `rugscan analyze` / `rugscan approval`:
+- `assay analyze` / `assay approval`:
   - `0` — OK per configured checks (no findings at/above the built-in thresholds)
   - `1` — CAUTION/WARNING
   - `2` — DANGER
-- `rugscan scan`:
+- `assay scan`:
   - `0` — recommendation is below `--fail-on`
   - `2` — recommendation is >= `--fail-on` (default: `warning`)
   - `1` — invalid flags or runtime error
@@ -169,7 +169,7 @@ Without keys, analysis uses Sourcify only.
 
 ### Config File (alternative to env vars)
 
-Create `./rugscan.config.json` or `~/.config/rugscan/config.json`:
+Create `./assay.config.json` or `~/.config/assay/config.json`:
 
 ```json
 {
@@ -183,11 +183,11 @@ Create `./rugscan.config.json` or `~/.config/rugscan/config.json`:
 }
 ```
 
-Override location with `RUGSCAN_CONFIG=/path/to/config.json`.
+Override location with `ASSAY_CONFIG=/path/to/config.json`.
 
 ### Proxy Allowlist (v1)
 
-When running `rugscan proxy`, you can optionally enforce a local allowlist so transactions are blocked unless they only touch trusted endpoints.
+When running `assay proxy`, you can optionally enforce a local allowlist so transactions are blocked unless they only touch trusted endpoints.
 
 Config:
 
@@ -210,7 +210,7 @@ Notes:
 ## Library Usage
 
 ```typescript
-import { analyze, analyzeApproval } from "rugscan";
+import { analyze, analyzeApproval } from "assay";
 
 const result = await analyze("0x1234...", "ethereum", {
   etherscanKeys: {
@@ -287,7 +287,7 @@ console.log(approvalResult.spenderAnalysis); // AnalysisResult
 
 GitHub Actions runs two tiers of CI:
 - **Tier 1 (PR gating)**: `.github/workflows/ci.yml` runs default `bun test` (skips live-network + fork/anvil e2e suites)
-- **Tier 2 (comprehensive)**: `.github/workflows/ci-comprehensive.yml` runs nightly + manual (`workflow_dispatch`) with `RUGSCAN_LIVE_TESTS=1` and `RUGSCAN_FORK_E2E=1`
+- **Tier 2 (comprehensive)**: `.github/workflows/ci-comprehensive.yml` runs nightly + manual (`workflow_dispatch`) with `ASSAY_LIVE_TESTS=1` and `ASSAY_FORK_E2E=1`
 
 ```bash
 # Install deps
@@ -297,13 +297,13 @@ bun install
 bun test
 
 # Tier 2 (optional): run tests that hit live provider APIs (Sourcify/GoPlus/DeFiLlama/etc)
-RUGSCAN_LIVE_TESTS=1 bun test
+ASSAY_LIVE_TESTS=1 bun test
 
 # Tier 2 (optional): run fork/anvil e2e suites (requires Foundry's `anvil`)
-RUGSCAN_FORK_E2E=1 bun test
+ASSAY_FORK_E2E=1 bun test
 
 # Run everything
-RUGSCAN_LIVE_TESTS=1 RUGSCAN_FORK_E2E=1 bun test
+ASSAY_LIVE_TESTS=1 ASSAY_FORK_E2E=1 bun test
 
 # Build
 bun run build

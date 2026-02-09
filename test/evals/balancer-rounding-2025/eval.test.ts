@@ -8,7 +8,7 @@ import { join } from "node:path";
 /**
  * Balancer V2 Rounding Error Exploit Eval
  *
- * This eval tests whether rugscan would have detected the vulnerability
+ * This eval tests whether assay would have detected the vulnerability
  * that led to $128M being drained on November 3, 2025.
  *
  * The exploit leveraged precision loss in _upscaleArray's mulDown operation

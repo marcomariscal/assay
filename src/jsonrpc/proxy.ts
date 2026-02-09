@@ -710,7 +710,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 				return new Response(null, { status: 204, headers: corsHeaders() });
 			}
 			if (request.method === "GET") {
-				return jsonResponse({ ok: true, name: "rugscan-jsonrpc-proxy" }, 200);
+				return jsonResponse({ ok: true, name: "assay-jsonrpc-proxy" }, 200);
 			}
 			if (request.method !== "POST") {
 				return jsonResponse(jsonRpcError(null, -32601, "Method not allowed"), 405);
@@ -930,7 +930,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 							return jsonRpcError(
 								id,
 								4001,
-								"Transaction blocked by rugscan",
+								"Transaction blocked by assay",
 								buildProxyBlockData(outcome, allowlist),
 							);
 						}
@@ -943,7 +943,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 						: jsonRpcError(
 								id,
 								4001,
-								"Transaction blocked by rugscan",
+								"Transaction blocked by assay",
 								buildProxyBlockData(outcome, allowlist),
 							);
 				}

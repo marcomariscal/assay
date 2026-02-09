@@ -66,7 +66,7 @@ async function runOnce(options: {
 	rpcUrl: string;
 	anvilPath: string;
 }): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-	const tmpDir = await mkdtemp(path.join(os.tmpdir(), "rugscan-e2e-"));
+	const tmpDir = await mkdtemp(path.join(os.tmpdir(), "assay-e2e-"));
 	const configPath = path.join(tmpDir, "config.json");
 	await writeFile(
 		configPath,
@@ -95,7 +95,7 @@ async function runOnce(options: {
 	const args = ["scan", "--calldata", calldata, "--format", options.format, "--quiet"];
 	const env = {
 		...process.env,
-		RUGSCAN_CONFIG: configPath,
+		ASSAY_CONFIG: configPath,
 		NO_COLOR: "1",
 	};
 
@@ -110,18 +110,18 @@ async function runOnce(options: {
 	return { exitCode, stdout, stderr };
 }
 
-export async function runRugscanScanWithTempForkConfig(options: {
+export async function runAssayScanWithTempForkConfig(options: {
 	fixture: TxFixture;
 	format?: "json";
 }): Promise<{ exitCode: number; stdout: string; stderr: string }> {
 	const anvilPath =
-		process.env.RUGSCAN_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
+		process.env.ASSAY_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
 	if (!existsSync(anvilPath)) {
 		throw new Error(`Anvil not found at ${anvilPath}`);
 	}
 
-	const rpcUrls = process.env.RUGSCAN_TEST_RPC_URL
-		? [process.env.RUGSCAN_TEST_RPC_URL]
+	const rpcUrls = process.env.ASSAY_TEST_RPC_URL
+		? [process.env.ASSAY_TEST_RPC_URL]
 		: ["https://eth.drpc.org", "https://ethereum.publicnode.com", "https://eth.llamarpc.com"];
 
 	let lastResult: { exitCode: number; stdout: string; stderr: string } | null = null;

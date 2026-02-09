@@ -1,10 +1,10 @@
 import { test as bunTest, describe, expect } from "bun:test";
 import { analyze } from "../src/analyzer";
 
-const test = process.env.RUGSCAN_LIVE_TESTS === "1" ? bunTest : bunTest.skip;
+const test = process.env.ASSAY_LIVE_TESTS === "1" ? bunTest : bunTest.skip;
 
 /**
- * rugscan analyzer tests
+ * assay analyzer tests
  *
  * These tests verify real-world contracts produce expected findings.
  * They hit live APIs (Sourcify, GoPlus) so results are authentic.

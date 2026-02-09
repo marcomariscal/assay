@@ -1,8 +1,8 @@
-# Agent integrations (rugscan)
+# Agent integrations (assay)
 
-This doc describes **supported integration modes** for using rugscan as a preflight security gate before submitting EVM transactions.
+This doc describes **supported integration modes** for using assay as a preflight security gate before submitting EVM transactions.
 
-> Scope note: rugscan is **EVM / Ethereum JSON-RPC only** right now.
+> Scope note: assay is **EVM / Ethereum JSON-RPC only** right now.
 > The integration points below specifically target `eth_sendTransaction` and `eth_sendRawTransaction`.
 
 ## Mode 1 (preferred): In-process wrapper (agent-native)
@@ -14,8 +14,8 @@ Wrap your existing `viem` transport and block risky transactions *before* they h
 - Intercepts:
   - `eth_sendTransaction`
   - `eth_sendRawTransaction`
-- Runs the full rugscan pipeline in-process (`scanWithAnalysis`).
-- If risky/unknown, throws `RugscanTransportError` containing:
+- Runs the full assay pipeline in-process (`scanWithAnalysis`).
+- If risky/unknown, throws `AssayTransportError` containing:
   - `analyzeResponse` (structured)
   - `renderedSummary` (human-readable string)
 
@@ -24,11 +24,11 @@ Example:
 ```ts
 import { createWalletClient, http } from "viem"
 import { mainnet } from "viem/chains"
-import { createRugscanViemTransport, RugscanTransportError } from "rugscan"
+import { createAssayViemTransport, AssayTransportError } from "assay"
 
 const upstream = http(process.env.RPC_URL!)
 
-const transport = createRugscanViemTransport({
+const transport = createAssayViemTransport({
   upstream,
   config: {
     // Provide RPC URLs / keys as needed for richer analysis + simulation.
@@ -57,7 +57,7 @@ try {
     ],
   })
 } catch (err) {
-  if (err instanceof RugscanTransportError) {
+  if (err instanceof AssayTransportError) {
     console.error(err.renderedSummary)
   }
   throw err
@@ -74,15 +74,15 @@ This repo currently ships the viem wrapper as the “serious” integration path
 
 ## Mode 2: CLI preflight gate
 
-Run rugscan as a **preflight check** in an agent/tool workflow before signing/sending.
+Run assay as a **preflight check** in an agent/tool workflow before signing/sending.
 
-- `rugscan scan ... --fail-on <threshold>` exits non-zero when recommendation >= threshold.
+- `assay scan ... --fail-on <threshold>` exits non-zero when recommendation >= threshold.
 - Useful when you can’t easily wrap a provider, or you want a one-shot shell step.
 
 Example (pseudocode):
 
 ```bash
-rugscan scan --calldata @tx.json --fail-on warning
+assay scan --calldata @tx.json --fail-on warning
 # if exit code is 0, proceed to send transaction
 ```
 
@@ -91,18 +91,18 @@ rugscan scan --calldata @tx.json --fail-on warning
 For tools that expect an RPC URL and submit transactions directly (e.g. “executor” style tools),
 use a local JSON-RPC proxy:
 
-- Start `rugscan proxy --upstream <RPC_URL>` locally.
+- Start `assay proxy --upstream <RPC_URL>` locally.
 - Point the executor at the proxy.
 
 Proposed convenience wrapper:
 
 ```bash
-rugscan exec -- <command>
+assay exec -- <command>
 ```
 
 Behavior:
 
-1. Start a local rugscan proxy bound to `127.0.0.1:<port>`.
+1. Start a local assay proxy bound to `127.0.0.1:<port>`.
 2. Run `<command>` with `RPC_URL` (and/or common aliases like `ETH_RPC_URL`) set to the proxy URL.
 3. Proxy intercepts `eth_sendTransaction` / `eth_sendRawTransaction` and blocks risky/unknown.
 

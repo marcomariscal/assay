@@ -12,11 +12,11 @@ export type {
 } from "./schema";
 export { ScanError, scan, scanAddress, scanCalldata } from "./sdk";
 export {
-	createRugscanViemTransport,
-	RugscanTransportError,
-	type RugscanTransportErrorReason,
-	type RugscanViemOnRisk,
-	type RugscanViemTransportOptions,
+	AssayTransportError,
+	type AssayTransportErrorReason,
+	type AssayViemOnRisk,
+	type AssayViemTransportOptions,
+	createAssayViemTransport,
 } from "./sdk/viem";
 export type {
 	AnalysisResult,

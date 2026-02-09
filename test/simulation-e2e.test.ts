@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const test = process.env.RUGSCAN_FORK_E2E === "1" ? bunTest : bunTest.skip;
+const test = process.env.ASSAY_FORK_E2E === "1" ? bunTest : bunTest.skip;
 
 async function runCli(args: string[], envOverrides: Record<string, string | undefined> = {}) {
 	const env = { ...process.env, ...envOverrides };
@@ -27,7 +27,7 @@ function stripAnsi(input: string): string {
 const configPath = fileURLToPath(new URL("./fixtures/simulation-config.json", import.meta.url));
 const emptyConfigPath = fileURLToPath(new URL("./fixtures/empty-config.json", import.meta.url));
 const anvilPath =
-	process.env.RUGSCAN_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
+	process.env.ASSAY_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
 const anvilDir = path.dirname(anvilPath);
 const foundryDefaultAnvilPath = path.join(os.homedir(), ".foundry", "bin", "anvil");
 const bunDir = path.dirname(process.execPath);
@@ -42,7 +42,7 @@ const calldata = JSON.stringify({
 
 function baseEnv(config: string) {
 	return {
-		RUGSCAN_CONFIG: config,
+		ASSAY_CONFIG: config,
 		NO_COLOR: "1",
 		PATH: `${anvilDir}:${process.env.PATH ?? ""}`,
 	};
@@ -50,7 +50,7 @@ function baseEnv(config: string) {
 
 function envWithoutAnvilOnPath(config: string) {
 	return {
-		RUGSCAN_CONFIG: config,
+		ASSAY_CONFIG: config,
 		NO_COLOR: "1",
 		PATH: bunDir,
 	};

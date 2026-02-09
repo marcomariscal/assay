@@ -4,11 +4,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { buildAnalyzeResponse } from "../src/scan";
 import type { ScanInput } from "../src/schema";
-import {
-	createRugscanViemTransport,
-	type RugscanScanFn,
-	RugscanTransportError,
-} from "../src/sdk/viem";
+import { type AssayScanFn, AssayTransportError, createAssayViemTransport } from "../src/sdk/viem";
 import type { AnalysisResult, BalanceSimulationResult, Config, Recommendation } from "../src/types";
 
 function buildSimulation(success: boolean): BalanceSimulationResult {
@@ -62,13 +58,13 @@ describe("viem transport - unit", () => {
 		const { transport: upstream, calls } = createUpstream();
 		const config: Config = {};
 
-		const scanFn: RugscanScanFn = async (input: ScanInput, options) => {
+		const scanFn: AssayScanFn = async (input: ScanInput, options) => {
 			const analysis = buildAnalysis({ recommendation: "ok", simulationSuccess: false });
 			const response = buildAnalyzeResponse(input, analysis, options?.requestId);
 			return { analysis, response };
 		};
 
-		const transport = createRugscanViemTransport({
+		const transport = createAssayViemTransport({
 			upstream,
 			config,
 			threshold: "danger",
@@ -98,8 +94,8 @@ describe("viem transport - unit", () => {
 		}
 
 		expect(calls.length).toBe(0);
-		expect(error).toBeInstanceOf(RugscanTransportError);
-		if (!(error instanceof RugscanTransportError)) return;
+		expect(error).toBeInstanceOf(AssayTransportError);
+		if (!(error instanceof AssayTransportError)) return;
 		expect(error.reason).toBe("simulation_failed");
 		expect(error.analyzeResponse?.requestId).toBe("req-1");
 		expect(typeof error.renderedSummary).toBe("string");
@@ -109,13 +105,13 @@ describe("viem transport - unit", () => {
 		const { transport: upstream, calls } = createUpstream();
 		const config: Config = {};
 
-		const scanFn: RugscanScanFn = async (input: ScanInput, options) => {
+		const scanFn: AssayScanFn = async (input: ScanInput, options) => {
 			const analysis = buildAnalysis({ recommendation: "warning", simulationSuccess: true });
 			const response = buildAnalyzeResponse(input, analysis, options?.requestId);
 			return { analysis, response };
 		};
 
-		const transport = createRugscanViemTransport({
+		const transport = createAssayViemTransport({
 			upstream,
 			config,
 			threshold: "warning",
@@ -136,7 +132,7 @@ describe("viem transport - unit", () => {
 					},
 				],
 			}),
-		).rejects.toBeInstanceOf(RugscanTransportError);
+		).rejects.toBeInstanceOf(AssayTransportError);
 
 		expect(calls.length).toBe(0);
 	});
@@ -145,13 +141,13 @@ describe("viem transport - unit", () => {
 		const { transport: upstream, calls } = createUpstream();
 		const config: Config = {};
 
-		const scanFn: RugscanScanFn = async (input: ScanInput, options) => {
+		const scanFn: AssayScanFn = async (input: ScanInput, options) => {
 			const analysis = buildAnalysis({ recommendation: "ok", simulationSuccess: true });
 			const response = buildAnalyzeResponse(input, analysis, options?.requestId);
 			return { analysis, response };
 		};
 
-		const transport = createRugscanViemTransport({
+		const transport = createAssayViemTransport({
 			upstream,
 			config,
 			threshold: "warning",
@@ -181,11 +177,11 @@ describe("viem transport - unit", () => {
 		const { transport: upstream, calls } = createUpstream();
 		const config: Config = {};
 
-		const scanFn: RugscanScanFn = async () => {
+		const scanFn: AssayScanFn = async () => {
 			throw new Error("boom");
 		};
 
-		const transport = createRugscanViemTransport({
+		const transport = createAssayViemTransport({
 			upstream,
 			config,
 			threshold: "warning",
@@ -206,7 +202,7 @@ describe("viem transport - unit", () => {
 					},
 				],
 			}),
-		).rejects.toBeInstanceOf(RugscanTransportError);
+		).rejects.toBeInstanceOf(AssayTransportError);
 
 		expect(calls.length).toBe(0);
 	});
@@ -228,7 +224,7 @@ describe("viem transport - unit", () => {
 			maxPriorityFeePerGas: 1n,
 		});
 
-		const scanFn: RugscanScanFn = async (input: ScanInput, options) => {
+		const scanFn: AssayScanFn = async (input: ScanInput, options) => {
 			expect(input.calldata?.to.toLowerCase()).toBe("0x66a9893cc07d91d95644aedd05d03f95e1dba8af");
 			expect(input.calldata?.from?.toLowerCase()).toBe(account.address.toLowerCase());
 			expect(input.calldata?.data).toBe("0x1234");
@@ -240,7 +236,7 @@ describe("viem transport - unit", () => {
 			return { analysis, response };
 		};
 
-		const transport = createRugscanViemTransport({
+		const transport = createAssayViemTransport({
 			upstream,
 			config,
 			threshold: "warning",

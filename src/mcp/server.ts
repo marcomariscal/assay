@@ -85,7 +85,7 @@ const analyzeAddressArgsSchema = z
 	.strict();
 
 function resolveStubDepsFromEnv(): AnalyzerDeps | null {
-	if (process.env.RUGSCAN_MCP_STUB_DEPS !== "1") return null;
+	if (process.env.ASSAY_MCP_STUB_DEPS !== "1") return null;
 
 	return {
 		ai: {
@@ -122,7 +122,7 @@ function resolveStubDepsFromEnv(): AnalyzerDeps | null {
 function toolList() {
 	return [
 		{
-			name: "rugscan.analyzeTransaction",
+			name: "assay.analyzeTransaction",
 			description: "Analyze an EVM transaction target + calldata for risk findings.",
 			inputSchema: {
 				type: "object",
@@ -143,7 +143,7 @@ function toolList() {
 			},
 		},
 		{
-			name: "rugscan.analyzeAddress",
+			name: "assay.analyzeAddress",
 			description: "Analyze a contract/address for risk findings.",
 			inputSchema: {
 				type: "object",
@@ -218,7 +218,7 @@ export async function runMcpServer(): Promise<void> {
 					const result = {
 						protocolVersion: "2024-11-05",
 						capabilities: { tools: {} },
-						serverInfo: { name: "rugscan", version: "0.1.0" },
+						serverInfo: { name: "assay", version: "0.1.0" },
 					};
 					send(jsonRpcResult(id, result));
 					return;
@@ -247,7 +247,7 @@ export async function runMcpServer(): Promise<void> {
 
 					const args = message.params.arguments;
 
-					if (name === "rugscan.analyzeTransaction") {
+					if (name === "assay.analyzeTransaction") {
 						const parsed = analyzeTransactionArgsSchema.safeParse(args);
 						if (!parsed.success) {
 							send(
@@ -308,7 +308,7 @@ export async function runMcpServer(): Promise<void> {
 						return;
 					}
 
-					if (name === "rugscan.analyzeAddress") {
+					if (name === "assay.analyzeAddress") {
 						const parsed = analyzeAddressArgsSchema.safeParse(args);
 						if (!parsed.success) {
 							send(
@@ -365,7 +365,7 @@ export async function runMcpServer(): Promise<void> {
 		},
 		onParseError: (error) => {
 			const message = error instanceof Error ? error.message : String(error);
-			process.stderr.write(`rugscan mcp parse error: ${message}\n`);
+			process.stderr.write(`assay mcp parse error: ${message}\n`);
 		},
 	});
 }

@@ -24,7 +24,7 @@ If any of these assumptions are wrong, please confirm before implementation.
 ## Success Criteria
 - `analyzeApproval()` returns `ApprovalAnalysisResult` with flags and findings.
 - Each core detection feature triggers its specified finding codes.
-- `rugscan approval ...` works with or without context, produces clear output, and uses exit codes consistent with existing CLI behavior.
+- `assay approval ...` works with or without context, produces clear output, and uses exit codes consistent with existing CLI behavior.
 - Typosquat detection triggers only for “near misses,” not exact matches.
 
 ---
@@ -154,7 +154,7 @@ Optionally, extract the existing `KNOWN_PROTOCOL_ADDRESSES` from `defillama.ts` 
 ## 5. CLI Integration
 
 ### New subcommand
-`rugscan approval --token <addr> --spender <addr> --amount <value> [--expected <addr>] [--called <addr>] [--chain <chain>]`
+`assay approval --token <addr> --spender <addr> --amount <value> [--expected <addr>] [--called <addr>] [--chain <chain>]`
 
 Parsing:
 - `--amount max` → `MAX_UINT256`.
@@ -221,7 +221,7 @@ If you want strict TDD, I can reorder steps 2–5 to scaffold tests first.
 
 ## 9. Manual Verification Checklist
 
-- `rugscan approval --token 0xUSDC --spender <router> --amount max` → warns on unlimited.
+- `assay approval --token 0xUSDC --spender <router> --amount max` → warns on unlimited.
 - `--expected` mismatch triggers `APPROVAL_TARGET_MISMATCH`.
 - EOA spender triggers `APPROVAL_TO_EOA` + danger exit code.
 - Typosquat-like address triggers `POSSIBLE_TYPOSQUAT`.

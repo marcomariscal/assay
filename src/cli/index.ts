@@ -13,8 +13,8 @@ import { type CalldataInput, type ScanInput, scanInputSchema } from "../schema";
 import type { ApprovalContext, ApprovalTx, Chain, Recommendation } from "../types";
 import { formatSarif } from "./formatters/sarif";
 import {
+	ASSAY_UPSTREAM_ENV,
 	formatMissingUpstreamError,
-	RUGSCAN_UPSTREAM_ENV,
 	resolveProxyUpstreamUrl,
 } from "./proxy-upstream";
 import {
@@ -147,7 +147,7 @@ Options:
 
   Proxy:
   --upstream     Upstream JSON-RPC HTTP URL to forward requests to
-                 (default: $RUGSCAN_UPSTREAM or config rpcUrls.<chain>)
+                 (default: $ASSAY_UPSTREAM or config rpcUrls.<chain>)
   --save         Save --upstream to config file under rpcUrls.ethereum
   --hostname     Hostname to bind the proxy server (default: 127.0.0.1)
   --port         Port to bind the proxy server (default: 8545)
@@ -163,7 +163,7 @@ Options:
   --expected     Expected spender address
 
 Environment:
-  RUGSCAN_UPSTREAM        Default upstream JSON-RPC URL for rugscan proxy
+  ASSAY_UPSTREAM        Default upstream JSON-RPC URL for assay proxy
   ETHERSCAN_API_KEY       Etherscan API key (enables full analysis)
   BASESCAN_API_KEY        BaseScan API key
   ARBISCAN_API_KEY        Arbiscan API key
@@ -171,15 +171,15 @@ Environment:
   POLYGONSCAN_API_KEY     PolygonScan API key
 
 Examples:
-  rugscan analyze 0x1234...
-  rugscan analyze 0x1234... --chain base
-  rugscan scan 0x1234... --format json
+  assay analyze 0x1234...
+  assay analyze 0x1234... --chain base
+  assay scan 0x1234... --format json
   # Paste Rabby JSON directly
-  rugscan scan --calldata '{"chainId":1,"from":"0x...","to":"0x...","value":"0x0","data":"0x..."}' --format json
+  assay scan --calldata '{"chainId":1,"from":"0x...","to":"0x...","value":"0x0","data":"0x..."}' --format json
 
   # MetaMask "Hex Data" (raw calldata) + explicit target
-  rugscan scan --calldata 0x... --to 0x... --value 0x0 --chain 1 --format json
-  rugscan approval --token 0x1234... --spender 0xabcd... --amount max
+  assay scan --calldata 0x... --to 0x... --value 0x0 --chain 1 --format json
+  assay approval --token 0x1234... --spender 0xabcd... --amount max
 `);
 }
 
@@ -254,7 +254,7 @@ async function runAnalyze(args: string[]) {
 			if (!rpcUrl) {
 				console.error(
 					renderError(
-						`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in rugscan.config.json or ~/.config/rugscan/config.json)`,
+						`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in assay.config.json or ~/.config/assay/config.json)`,
 					),
 				);
 				process.exit(1);
@@ -361,7 +361,7 @@ async function runScan(args: string[]) {
 			if (!rpcUrl) {
 				console.error(
 					renderError(
-						`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in rugscan.config.json or ~/.config/rugscan/config.json)`,
+						`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in assay.config.json or ~/.config/assay/config.json)`,
 					),
 				);
 				process.exit(1);
@@ -506,7 +506,7 @@ async function runApproval(args: string[]) {
 			if (!rpcUrl) {
 				console.error(
 					renderError(
-						`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in rugscan.config.json or ~/.config/rugscan/config.json)`,
+						`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in assay.config.json or ~/.config/assay/config.json)`,
 					),
 				);
 				process.exit(1);
@@ -574,7 +574,7 @@ async function runProxy(args: string[]) {
 		cliUpstream,
 		chainArg: chain,
 		config,
-		envUpstream: process.env[RUGSCAN_UPSTREAM_ENV],
+		envUpstream: process.env[ASSAY_UPSTREAM_ENV],
 	});
 	if (!resolved) {
 		console.error(renderError(formatMissingUpstreamError({ chainArg: chain })));
@@ -666,7 +666,7 @@ async function runProxy(args: string[]) {
 async function runMcp(args: string[]) {
 	if (args.includes("--help") || args.includes("-h")) {
 		console.log(
-			"assay mcp - MCP server over stdio (Model Context Protocol)\n\nUsage:\n  assay mcp\n\nNotes:\n  - Communicates over stdin/stdout using JSON-RPC framing (Content-Length).\n  - Exposes Rugscan analysis as MCP tools.\n",
+			"assay mcp - MCP server over stdio (Model Context Protocol)\n\nUsage:\n  assay mcp\n\nNotes:\n  - Communicates over stdin/stdout using JSON-RPC framing (Content-Length).\n  - Exposes Assay analysis as MCP tools.\n",
 		);
 		process.exit(0);
 	}

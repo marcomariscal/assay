@@ -1,7 +1,7 @@
 import { test as bunTest, describe, expect } from "bun:test";
 import { getTokenSecurity } from "../../src/providers/goplus";
 
-const test = process.env.RUGSCAN_LIVE_TESTS === "1" ? bunTest : bunTest.skip;
+const test = process.env.ASSAY_LIVE_TESTS === "1" ? bunTest : bunTest.skip;
 
 describe("goplus", () => {
 	test("getTokenSecurity flags honeypot tokens", async () => {

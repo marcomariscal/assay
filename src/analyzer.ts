@@ -160,7 +160,7 @@ export async function analyze(
 	const rpcUrl = config?.rpcUrls?.[chain];
 	if (offline && !rpcUrl) {
 		throw new Error(
-			`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in rugscan.config.json or ~/.config/rugscan/config.json)`,
+			`offline mode: missing config rpcUrls.${chain} (no public RPC fallbacks; set it in assay.config.json or ~/.config/assay/config.json)`,
 		);
 	}
 

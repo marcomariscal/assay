@@ -1,12 +1,11 @@
 {
-	"name": "rugscan",
+	"name": "assay",
 	"version": "0.1.0",
 	"description": "Pre-transaction security analysis for EVM contracts",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
 	"bin": {
-		"rugscan": "src/cli/index.ts",
 		"assay": "src/cli/index.ts"
 	},
 	"scripts": {

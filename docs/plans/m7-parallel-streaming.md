@@ -4,7 +4,7 @@
 - Parallelize independent provider calls to reduce total latency.
 - Stream findings to CLI as each provider completes.
 - Early exit on critical findings (KNOWN_PHISHING → abort remaining checks).
-- Add `rugscan analyze-tx <txHash>` for full call trace analysis.
+- Add `assay analyze-tx <txHash>` for full call trace analysis.
 - Cache analysis results to avoid re-checking the same contract.
 
 ## Non-Goals (explicit)
@@ -15,7 +15,7 @@
 ## Assumptions / Open Decisions
 - **Critical signal definition**: decide which provider fields map to `KNOWN_PHISHING` (GoPlus label, Etherscan label, custom list). If unclear, confirm and codify a single source of truth.
 - **Trace RPC method**: prefer `debug_traceTransaction` on geth-compatible RPC; if unavailable, we’ll return a clear error and skip trace analysis.
-- **Cache location**: default to a simple JSON file under a cache directory (e.g. `~/.cache/rugscan/analysis.json`), with in-memory fallback.
+- **Cache location**: default to a simple JSON file under a cache directory (e.g. `~/.cache/assay/analysis.json`), with in-memory fallback.
 - **Abort semantics**: we will attempt to cancel provider fetches via `AbortController`, but providers that don’t respect `signal` will be ignored once early-exit is triggered.
 - **Aggregate risk**: define whether to use `max`, `weighted average`, or `worst-N` for transaction-level scoring.
 
@@ -25,7 +25,7 @@ If any assumption is off, confirm before implementation.
 - Median end-to-end analysis latency drops meaningfully (e.g. ~2–3s → ~1–1.5s on typical RPC).
 - CLI shows per-provider progress and streams findings as they arrive.
 - When `KNOWN_PHISHING` is detected, remaining provider calls are aborted and the result returns immediately.
-- `rugscan analyze-tx` analyzes all contracts in a call trace and returns a per-contract breakdown + aggregate risk.
+- `assay analyze-tx` analyzes all contracts in a call trace and returns a per-contract breakdown + aggregate risk.
 - Cache hits skip provider calls and annotate output with `(cached)`.
 
 ---
@@ -190,7 +190,7 @@ cache?: {
 
 ---
 
-## 5. Call Trace Analysis (`rugscan analyze-tx`)
+## 5. Call Trace Analysis (`assay analyze-tx`)
 
 ### 5.1 New module
 Create `src/transaction.ts` (or `src/analyze-transaction.ts`) to encapsulate:
@@ -254,8 +254,8 @@ Update `src/cli/index.ts`:
 - Aggregate risk/recommendation derived correctly.
 
 ### 7.3 CLI smoke tests (optional)
-- `rugscan analyze <addr>` prints streaming output.
-- `rugscan analyze-tx <hash>` produces per-contract output.
+- `assay analyze <addr>` prints streaming output.
+- `assay analyze-tx <hash>` produces per-contract output.
 
 ---
 
