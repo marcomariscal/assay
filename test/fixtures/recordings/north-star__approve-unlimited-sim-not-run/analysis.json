@@ -4,7 +4,8 @@
 		"chain": "ethereum",
 		"name": "USD Coin",
 		"verified": true,
-		"is_proxy": false
+		"is_proxy": false,
+		"confidence": "high"
 	},
 	"protocol": "USDC",
 	"findings": [
@@ -40,10 +41,6 @@
 			}
 		}
 	],
-	"confidence": {
-		"level": "high",
-		"reasons": []
-	},
 	"recommendation": "caution",
 	"intent": "Approve USDC allowance"
 }

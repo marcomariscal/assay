@@ -77,7 +77,7 @@ describe("analyzer matrix (unit)", () => {
 			expect(result.contract.verified).toBe(false);
 			expect(result.findings.some((f) => f.code === "UNVERIFIED")).toBe(true);
 			expect(result.recommendation).toBe("danger");
-			expect(result.confidence.level).toBe("low");
+			expect(result.contract.confidence).toBe("low");
 		});
 
 		test("verification unknown → UNKNOWN_SECURITY finding", async () => {
@@ -91,8 +91,7 @@ describe("analyzer matrix (unit)", () => {
 			expect(result.contract.verified).toBe(false);
 			expect(result.findings.some((f) => f.code === "UNKNOWN_SECURITY")).toBe(true);
 			expect(result.findings.some((f) => f.code === "UNVERIFIED")).toBe(false);
-			expect(result.confidence.level).toBe("medium");
-			expect(result.confidence.reasons).toContain("source verification unknown");
+			expect(result.contract.confidence).toBe("medium");
 		});
 	});
 

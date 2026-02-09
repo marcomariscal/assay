@@ -263,7 +263,7 @@ function evaluateAllowlist(options: {
 }
 
 function extractApprovalSpendersFromResponse(response: AnalyzeResponse | undefined): string[] {
-	const approvals = response?.scan.simulation?.approvals;
+	const approvals = response?.scan.simulation?.approvals.changes;
 	if (!approvals) return [];
 	const result: string[] = [];
 	for (const approval of approvals) {

@@ -1,5 +1,5 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"requestId": "01c395fd-e6ac-41f4-b9cc-76f5cee6bdb2",
 	"scan": {
 		"input": {
@@ -12,7 +12,6 @@
 			}
 		},
 		"recommendation": "ok",
-		"confidence": 0.5499999999999999,
 		"findings": [
 			{
 				"code": "VERIFIED",
@@ -54,25 +53,31 @@
 			"name": "UniversalRouter",
 			"isProxy": false,
 			"verifiedSource": true,
-			"tags": ["Uniswap"]
+			"tags": ["Uniswap"],
+			"confidence": "high"
 		},
 		"simulation": {
-			"success": true,
+			"status": "success",
 			"gasUsed": "294837",
 			"effectiveGasPrice": "274432103",
 			"nativeDiff": "589783903339674",
-			"assetChanges": [
-				{
-					"assetType": "erc20",
-					"address": "0x4956b52ae2ff65d74ca2d61207523288e4528f96",
-					"amount": "1000000000000000000",
-					"direction": "out",
-					"symbol": "RLP",
-					"decimals": 18
-				}
-			],
-			"approvals": [],
-			"confidence": "low",
+			"balances": {
+				"changes": [
+					{
+						"assetType": "erc20",
+						"address": "0x4956b52ae2ff65d74ca2d61207523288e4528f96",
+						"amount": "1000000000000000000",
+						"direction": "out",
+						"symbol": "RLP",
+						"decimals": 18
+					}
+				],
+				"confidence": "low"
+			},
+			"approvals": {
+				"changes": [],
+				"confidence": "low"
+			},
 			"notes": [
 				"Sender is a contract account; simulation is best-effort.",
 				"ERC-165 check failed for 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48; defaulted to ERC-20",

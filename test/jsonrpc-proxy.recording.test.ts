@@ -41,12 +41,11 @@ describe("jsonrpc proxy - recording", () => {
 			_ctx: { chain: Chain; config: Config },
 		): Promise<ProxyScanOutcome> => {
 			const response: AnalyzeResponse = {
-				schemaVersion: 1,
+				schemaVersion: 2,
 				requestId: crypto.randomUUID(),
 				scan: {
 					input,
 					recommendation: "ok",
-					confidence: 1,
 					findings: [],
 					contract: {
 						address: input.calldata?.to ?? "0x0000000000000000000000000000000000000000",
@@ -54,6 +53,7 @@ describe("jsonrpc proxy - recording", () => {
 						isContract: true,
 						isProxy: false,
 						verifiedSource: false,
+						confidence: "high",
 					},
 				},
 			};

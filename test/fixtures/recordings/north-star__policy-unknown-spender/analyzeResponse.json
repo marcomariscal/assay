@@ -1,5 +1,5 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"requestId": "44444444-4444-4444-8444-444444444444",
 	"scan": {
 		"input": {
@@ -13,7 +13,6 @@
 		},
 		"intent": "Approve spender",
 		"recommendation": "warning",
-		"confidence": 0.7,
 		"findings": [
 			{
 				"code": "UNLIMITED_APPROVAL",
@@ -30,13 +29,19 @@
 			"isContract": true,
 			"name": "USD Coin",
 			"isProxy": false,
-			"verifiedSource": true
+			"verifiedSource": true,
+			"confidence": "high"
 		},
 		"simulation": {
-			"success": true,
-			"assetChanges": [],
-			"approvals": [],
-			"confidence": "high",
+			"status": "success",
+			"balances": {
+				"changes": [],
+				"confidence": "high"
+			},
+			"approvals": {
+				"changes": [],
+				"confidence": "high"
+			},
 			"notes": []
 		}
 	}

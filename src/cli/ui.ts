@@ -264,7 +264,7 @@ function improveApprovalIntentFromSimulation(result: AnalysisResult, base: strin
 	if (!result.simulation?.success) return null;
 	if (!base.toLowerCase().startsWith("approve")) return null;
 
-	const approval = result.simulation.approvals.find(
+	const approval = result.simulation.approvals.changes.find(
 		(a) => (a.standard === "erc20" || a.standard === "permit2") && a.scope !== "all",
 	);
 	if (!approval) return null;
@@ -349,10 +349,13 @@ function orderBalanceChanges(changes: string[]): string[] {
 	return [...negative, ...positive, ...other];
 }
 
-function simulationConfidenceNote(simulation: BalanceSimulationResult | undefined): string {
-	if (!simulation) return "";
-	if (!simulation.success) return "";
-	return simulation.confidence !== "high" ? ` (${simulation.confidence} confidence)` : "";
+function simulationIsUncertain(result: AnalysisResult, hasCalldata: boolean): boolean {
+	if (!hasCalldata) return false;
+	const simulation = result.simulation;
+	if (!simulation || !simulation.success) return true;
+	if (simulation.balances.confidence !== "high") return true;
+	if (simulation.approvals.confidence !== "high") return true;
+	return false;
 }
 
 function renderBalanceSection(
@@ -368,12 +371,12 @@ function renderBalanceSection(
 		return lines;
 	}
 	if (!result.simulation) {
-		lines.push(COLORS.warning(" - Simulation failed (not run)"));
+		lines.push(COLORS.warning(" - Simulation data unavailable; treat this as higher risk."));
 		return lines;
 	}
 	if (!result.simulation.success) {
 		const detail = result.simulation.revertReason ? ` (${result.simulation.revertReason})` : "";
-		lines.push(COLORS.warning(` - Simulation failed${detail}`));
+		lines.push(COLORS.warning(` - Simulation did not complete${detail}`));
 		const hints = extractSimulationHints(result.simulation.notes);
 		for (const hint of hints) {
 			lines.push(COLORS.warning(` - ${hint}`));
@@ -391,9 +394,13 @@ function renderBalanceSection(
 
 	const changes = buildBalanceChangeItems(result.simulation, result.contract.chain);
 	if (changes.length === 0) {
-		const note = simulationConfidenceNote(result.simulation);
-		const line = ` - No balance changes detected${note}`;
-		lines.push(note ? COLORS.warning(line) : COLORS.dim(line));
+		if (result.simulation.balances.confidence === "high") {
+			lines.push(COLORS.dim(" - No balance changes detected"));
+		} else {
+			lines.push(
+				COLORS.warning(" - Could not verify all balance changes; treat this as higher risk."),
+			);
+		}
 		return lines;
 	}
 
@@ -409,11 +416,6 @@ function renderBalanceSection(
 			continue;
 		}
 		lines.push(` - ${trimmed}`);
-	}
-
-	const note = simulationConfidenceNote(result.simulation);
-	if (note) {
-		lines.push(COLORS.warning(` - Note: ${note.replace(/^\s*\(|\)\s*$/g, "")}`));
 	}
 
 	return lines;
@@ -444,7 +446,7 @@ function buildApprovalItems(
 
 	// From simulation
 	if (result.simulation) {
-		for (const approval of result.simulation.approvals) {
+		for (const approval of result.simulation.approvals.changes) {
 			const item = formatSimulationApproval(approval, result.contract.chain);
 			const key = `${item.key.toLowerCase()}`;
 			items.set(key, { text: item.text, isUnlimited: item.isUnlimited, source: "simulation" });
@@ -476,12 +478,20 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 	const simulationFailed = !result.simulation || !result.simulation.success;
 	if (simulationFailed) {
 		if (approvals.length === 0) {
-			lines.push(COLORS.warning(" - Approvals unknown (simulation failed)"));
+			lines.push(
+				COLORS.warning(" - Could not verify approval changes; treat this as higher risk."),
+			);
 			return lines;
 		}
-		lines.push(COLORS.warning(" - Partial approvals (simulation failed):"));
+		lines.push(
+			COLORS.warning(" - Partial approvals observed; treat unknown approvals as higher risk:"),
+		);
 	}
 	if (approvals.length === 0) {
+		if (result.simulation && result.simulation.approvals.confidence !== "high") {
+			lines.push(COLORS.warning(" - Approval coverage is incomplete; treat this as higher risk."));
+			return lines;
+		}
 		lines.push(COLORS.dim(" - None detected"));
 		return lines;
 	}
@@ -577,9 +587,7 @@ function renderPolicySection(
 		lines.push(COLORS.warning(` ⚠️ Non-allowlisted ${endpoint.role}: ${label}`));
 	}
 
-	const simulationUncertain =
-		hasCalldata &&
-		(!result.simulation || !result.simulation.success || result.simulation.confidence !== "high");
+	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 
 	let decision = policy.decision;
 	let decisionReason: string | null = null;
@@ -612,9 +620,7 @@ function renderPolicySection(
 function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string[] {
 	let label = recommendationRiskLabel(result.recommendation);
 
-	const simulationUncertain =
-		hasCalldata &&
-		(!result.simulation || !result.simulation.success || result.simulation.confidence !== "high");
+	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	if (simulationUncertain && label === "SAFE") {
 		label = "LOW";
 	}
@@ -627,11 +633,11 @@ function renderRiskSection(result: AnalysisResult, hasCalldata: boolean): string
 	if (simulationUncertain) {
 		const simulation = result.simulation;
 		const reason = !simulation
-			? "simulation not run"
+			? "Simulation data is incomplete; recommendation already reflects this uncertainty."
 			: !simulation.success
-				? `simulation failed${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`
-				: `simulation ${simulation.confidence} confidence`;
-		lines.push(COLORS.warning(` ⚠️ INCONCLUSIVE: ${reason} — balances/approvals may be unknown`));
+				? `Simulation did not complete${simulation.revertReason ? ` (${simulation.revertReason})` : ""}; recommendation already reflects this uncertainty.`
+				: "Could not verify all balance or approval changes; recommendation already reflects this uncertainty.";
+		lines.push(COLORS.warning(` ⚠️ INCONCLUSIVE: ${reason}`));
 	}
 
 	return lines;
@@ -696,13 +702,13 @@ function buildBalanceChangeItems(simulation: BalanceSimulationResult, chain: Cha
 		items.push(formatSignedAmount(simulation.nativeDiff, 18, nativeSymbol(chain)));
 	}
 
-	const erc20Net = aggregateErc20(simulation.assetChanges);
+	const erc20Net = aggregateErc20(simulation.balances.changes);
 	for (const change of erc20Net) {
 		const symbol = change.symbol ?? shortenAddress(change.address);
 		items.push(formatSignedAmount(change.amount, change.decimals, symbol));
 	}
 
-	for (const change of simulation.assetChanges) {
+	for (const change of simulation.balances.changes) {
 		if (change.assetType === "erc20") continue;
 		const item = formatNftChange(change);
 		if (item) {
@@ -754,7 +760,7 @@ function aggregateErc20(
 }
 
 function formatSimulationApproval(
-	approval: BalanceSimulationResult["approvals"][number],
+	approval: BalanceSimulationResult["approvals"]["changes"][number],
 	chain: Chain,
 ): {
 	text: string;
@@ -880,7 +886,9 @@ function formatTokenAmount(amount: bigint, decimals: number | undefined): string
 	return formatNumberString(formatFixed(amount, decimals), 6);
 }
 
-function formatApprovalAmountLabel(approval: BalanceSimulationResult["approvals"][number]): string {
+function formatApprovalAmountLabel(
+	approval: BalanceSimulationResult["approvals"]["changes"][number],
+): string {
 	const isUnlimited =
 		approval.standard === "permit2"
 			? approval.amount === MAX_UINT160

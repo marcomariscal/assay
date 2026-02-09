@@ -4,7 +4,8 @@
 		"chain": "ethereum",
 		"name": "Universal Router",
 		"verified": true,
-		"is_proxy": false
+		"is_proxy": false,
+		"confidence": "high"
 	},
 	"protocol": "Uniswap",
 	"protocolMatch": {
@@ -38,17 +39,19 @@
 			}
 		}
 	],
-	"confidence": {
-		"level": "high",
-		"reasons": []
-	},
 	"recommendation": "ok",
 	"intent": "Swap ETH → USDC",
 	"simulation": {
 		"success": true,
-		"assetChanges": [],
-		"approvals": [],
-		"confidence": "high",
+		"status": "success",
+		"balances": {
+			"changes": [],
+			"confidence": "high"
+		},
+		"approvals": {
+			"changes": [],
+			"confidence": "high"
+		},
 		"notes": []
 	}
 }

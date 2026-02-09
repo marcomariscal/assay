@@ -38,7 +38,6 @@ describe("schema", () => {
 			scan: {
 				input: { address },
 				recommendation: "ok",
-				confidence: 0.9,
 				findings: [
 					{
 						code: "VERIFIED",
@@ -51,17 +50,18 @@ describe("schema", () => {
 					chain: "ethereum",
 					isContract: true,
 					verifiedSource: true,
+					confidence: "high",
 				},
 			},
 		};
 		const result = analyzeResponseSchema.safeParse(response);
 		expect(result.success).toBe(true);
 		if (result.success) {
-			expect(result.data.schemaVersion).toBe(1);
+			expect(result.data.schemaVersion).toBe(2);
 		}
 	});
 
-	test("AnalyzeResponse JSON output includes schemaVersion=1", () => {
+	test("AnalyzeResponse JSON output includes schemaVersion=2", () => {
 		const requestId = "00000000-0000-4000-8000-000000000000";
 		const address = "0x1111111111111111111111111111111111111111";
 
@@ -70,15 +70,15 @@ describe("schema", () => {
 				address,
 				chain: "ethereum",
 				verified: true,
+				confidence: "high",
 				is_proxy: false,
 			},
 			findings: [],
-			confidence: { level: "high", reasons: [] },
 			recommendation: "ok",
 		};
 
 		const response = buildAnalyzeResponse({ address }, analysis, requestId);
 		const parsed = JSON.parse(JSON.stringify(response));
-		expect(parsed.schemaVersion).toBe(1);
+		expect(parsed.schemaVersion).toBe(2);
 	});
 });

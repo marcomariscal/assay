@@ -301,7 +301,7 @@ describe("jsonrpc proxy - integration", () => {
 		const spender = "0x1111111111111111111111111111111111111111";
 
 		const response: AnalyzeResponse = {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			requestId: "00000000-0000-0000-0000-000000000000",
 			scan: {
 				input: {
@@ -314,26 +314,31 @@ describe("jsonrpc proxy - integration", () => {
 					},
 				},
 				recommendation: "ok",
-				confidence: 1,
 				findings: [],
 				contract: {
 					address: token,
 					chain: "ethereum",
 					isContract: true,
+					confidence: "high",
 				},
 				simulation: {
-					success: true,
-					assetChanges: [],
-					approvals: [
-						{
-							standard: "erc20",
-							token,
-							owner,
-							spender,
-							amount: "1",
-						},
-					],
-					confidence: "high",
+					status: "success",
+					balances: {
+						changes: [],
+						confidence: "high",
+					},
+					approvals: {
+						changes: [
+							{
+								standard: "erc20",
+								token,
+								owner,
+								spender,
+								amount: "1",
+							},
+						],
+						confidence: "high",
+					},
 					notes: [],
 				},
 			},
@@ -435,7 +440,7 @@ describe("jsonrpc proxy - integration", () => {
 		const spender = "0x3333333333333333333333333333333333333333";
 
 		const response: AnalyzeResponse = {
-			schemaVersion: 1,
+			schemaVersion: 2,
 			requestId: "00000000-0000-0000-0000-000000000000",
 			scan: {
 				input: {
@@ -448,7 +453,6 @@ describe("jsonrpc proxy - integration", () => {
 					},
 				},
 				recommendation: "ok",
-				confidence: 1,
 				findings: [
 					{
 						code: "CALLDATA_DECODED",
@@ -464,12 +468,18 @@ describe("jsonrpc proxy - integration", () => {
 					address: token,
 					chain: "ethereum",
 					isContract: true,
+					confidence: "high",
 				},
 				simulation: {
-					success: true,
-					assetChanges: [],
-					approvals: [],
-					confidence: "high",
+					status: "success",
+					balances: {
+						changes: [],
+						confidence: "high",
+					},
+					approvals: {
+						changes: [],
+						confidence: "high",
+					},
 					notes: [],
 				},
 			},

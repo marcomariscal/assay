@@ -29,7 +29,7 @@ function parseFixtureAddress(value: unknown, label: string): Address {
 
 function parseExpectedDeltas(value: unknown): ExpectedDelta[] {
 	if (!Array.isArray(value)) {
-		throw new Error("Fixture simulation.assetChanges must be an array");
+		throw new Error("Fixture simulation.balances.changes must be an array");
 	}
 	const out: ExpectedDelta[] = [];
 	for (const entry of value) {
@@ -37,12 +37,12 @@ function parseExpectedDeltas(value: unknown): ExpectedDelta[] {
 			throw new Error("Fixture asset change must be an object");
 		}
 		if (entry.assetType !== "erc20") continue;
-		const address = parseFixtureAddress(entry.address, "assetChanges.address");
+		const address = parseFixtureAddress(entry.address, "balances.changes.address");
 		if (entry.direction !== "in" && entry.direction !== "out") {
-			throw new Error("Fixture assetChanges.direction must be in/out");
+			throw new Error("Fixture balances.changes.direction must be in/out");
 		}
 		if (typeof entry.amount !== "string") {
-			throw new Error("Fixture assetChanges.amount must be a string");
+			throw new Error("Fixture balances.changes.amount must be a string");
 		}
 		out.push({
 			address,
@@ -73,9 +73,13 @@ async function loadRecording(name: string): Promise<{ actor: Address; expected: 
 		throw new Error(`Missing simulation fixture: ${name}`);
 	}
 
+	if (!isRecord(simulation.balances)) {
+		throw new Error(`Missing simulation.balances fixture: ${name}`);
+	}
+
 	return {
 		actor,
-		expected: parseExpectedDeltas(simulation.assetChanges),
+		expected: parseExpectedDeltas(simulation.balances.changes),
 	};
 }
 

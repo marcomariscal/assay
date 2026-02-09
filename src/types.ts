@@ -42,6 +42,7 @@ export type FindingCode =
 export type Recommendation = "danger" | "warning" | "caution" | "ok";
 
 export type ConfidenceLevel = "high" | "medium" | "low";
+export type SimulationConfidenceLevel = "high" | "medium" | "low" | "none";
 
 export interface Finding {
 	level: FindingLevel;
@@ -58,6 +59,7 @@ export interface ContractInfo {
 	proxy_name?: string;
 	implementation_name?: string;
 	verified: boolean;
+	confidence: ConfidenceLevel;
 	age_days?: number;
 	tx_count?: number;
 	is_proxy: boolean;
@@ -65,17 +67,11 @@ export interface ContractInfo {
 	beacon?: string;
 }
 
-export interface Confidence {
-	level: ConfidenceLevel;
-	reasons: string[];
-}
-
 export interface AnalysisResult {
 	contract: ContractInfo;
 	protocol?: string;
 	protocolMatch?: ProtocolMatch;
 	findings: Finding[];
-	confidence: Confidence;
 	recommendation: Recommendation;
 	intent?: string;
 	simulation?: BalanceSimulationResult;
@@ -162,9 +158,14 @@ export interface BalanceSimulationResult {
 	gasUsed?: bigint;
 	effectiveGasPrice?: bigint;
 	nativeDiff?: bigint;
-	assetChanges: AssetChange[];
-	approvals: ApprovalChange[];
-	confidence: ConfidenceLevel;
+	balances: {
+		changes: AssetChange[];
+		confidence: SimulationConfidenceLevel;
+	};
+	approvals: {
+		changes: ApprovalChange[];
+		confidence: SimulationConfidenceLevel;
+	};
 	notes: string[];
 }
 

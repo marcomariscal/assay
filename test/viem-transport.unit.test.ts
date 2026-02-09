@@ -15,9 +15,14 @@ function buildSimulation(success: boolean): BalanceSimulationResult {
 	return {
 		success,
 		revertReason: success ? undefined : "Simulation not run",
-		assetChanges: [],
-		approvals: [],
-		confidence: success ? "high" : "low",
+		balances: {
+			changes: [],
+			confidence: success ? "high" : "low",
+		},
+		approvals: {
+			changes: [],
+			confidence: success ? "high" : "low",
+		},
 		notes: success ? [] : ["Simulation not run"],
 	};
 }
@@ -31,10 +36,10 @@ function buildAnalysis(overrides: {
 			address: "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
 			chain: "ethereum",
 			verified: true,
+			confidence: "high",
 			is_proxy: false,
 		},
 		findings: [],
-		confidence: { level: "high", reasons: [] },
 		recommendation: overrides.recommendation,
 		simulation: buildSimulation(overrides.simulationSuccess),
 	};

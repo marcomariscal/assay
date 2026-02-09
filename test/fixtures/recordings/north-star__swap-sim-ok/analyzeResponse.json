@@ -1,5 +1,5 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"requestId": "11111111-1111-4111-8111-111111111111",
 	"scan": {
 		"input": {
@@ -13,7 +13,6 @@
 		},
 		"intent": "Swap ETH → USDC",
 		"recommendation": "ok",
-		"confidence": 0.9,
 		"findings": [
 			{
 				"code": "VERIFIED",
@@ -32,13 +31,19 @@
 			"isContract": true,
 			"name": "Universal Router",
 			"isProxy": false,
-			"verifiedSource": true
+			"verifiedSource": true,
+			"confidence": "high"
 		},
 		"simulation": {
-			"success": true,
-			"assetChanges": [],
-			"approvals": [],
-			"confidence": "high",
+			"status": "success",
+			"balances": {
+				"changes": [],
+				"confidence": "high"
+			},
+			"approvals": {
+				"changes": [],
+				"confidence": "high"
+			},
 			"notes": []
 		}
 	}

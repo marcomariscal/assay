@@ -13,10 +13,10 @@ function baseAnalysis(): AnalysisResult {
 			address: "0x1111111111111111111111111111111111111111",
 			chain: "ethereum",
 			verified: true,
+			confidence: "high",
 			is_proxy: false,
 		},
 		findings: [],
-		confidence: { level: "high", reasons: [] },
 		recommendation: "ok",
 	};
 }
@@ -28,9 +28,8 @@ describe("cli risk label with simulation failures", () => {
 			simulation: {
 				success: false,
 				revertReason: "Simulation failed",
-				assetChanges: [],
-				approvals: [],
-				confidence: "low",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
 				notes: ["Simulation failed"],
 			},
 		};
@@ -61,9 +60,8 @@ describe("cli risk label with simulation failures", () => {
 			...baseAnalysis(),
 			simulation: {
 				success: true,
-				assetChanges: [],
-				approvals: [],
-				confidence: "low",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
 				notes: [],
 			},
 		};
@@ -73,7 +71,7 @@ describe("cli risk label with simulation failures", () => {
 		expect(riskLine).toBeDefined();
 		expect(riskLine).not.toContain("SAFE");
 		expect(riskLine).toContain("LOW");
-		expect(output).toContain("No balance changes detected (low confidence)");
-		expect(output).toContain("- None detected");
+		expect(output).toContain("Could not verify all balance changes; treat this as higher risk.");
+		expect(output).toContain("Approval coverage is incomplete; treat this as higher risk.");
 	});
 });

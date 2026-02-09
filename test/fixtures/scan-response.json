@@ -1,12 +1,11 @@
 {
-	"schemaVersion": 1,
+	"schemaVersion": 2,
 	"requestId": "00000000-0000-4000-8000-000000000000",
 	"scan": {
 		"input": {
 			"address": "0x1111111111111111111111111111111111111111"
 		},
 		"recommendation": "warning",
-		"confidence": 0.62,
 		"findings": [
 			{
 				"code": "UNVERIFIED",
@@ -30,6 +29,7 @@
 			"name": "ExampleToken",
 			"isProxy": false,
 			"verifiedSource": false,
+			"confidence": "low",
 			"tags": ["Example"]
 		}
 	}
