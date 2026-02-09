@@ -129,6 +129,7 @@ export function buildSimulationNotRun(input: ScanInput["calldata"]): BalanceSimu
 			assetChanges: [],
 			approvals: [],
 			confidence: "low",
+			approvalsConfidence: "low",
 			notes: ["Simulation not run"],
 		};
 	}
@@ -152,6 +153,7 @@ export function buildSimulationNotRun(input: ScanInput["calldata"]): BalanceSimu
 		assetChanges: [],
 		approvals: [],
 		confidence: "low",
+		approvalsConfidence: "low",
 		notes,
 	};
 }

@@ -18,6 +18,7 @@ function buildSimulation(success: boolean): BalanceSimulationResult {
 		assetChanges: [],
 		approvals: [],
 		confidence: success ? "high" : "low",
+		approvalsConfidence: success ? "high" : "low",
 		notes: success ? [] : ["Simulation not run"],
 	};
 }

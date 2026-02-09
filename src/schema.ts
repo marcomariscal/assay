@@ -33,9 +33,12 @@ export interface ApprovalChange {
 	owner: string;
 	spender: string;
 	amount?: string;
+	previousAmount?: string;
 	tokenId?: string;
 	scope?: "token" | "all";
 	approved?: boolean;
+	previousApproved?: boolean;
+	previousSpender?: string;
 	symbol?: string;
 	decimals?: number;
 }
@@ -49,6 +52,7 @@ export interface BalanceSimulationResult {
 	assetChanges: AssetChange[];
 	approvals: ApprovalChange[];
 	confidence: "high" | "medium" | "low";
+	approvalsConfidence: "high" | "medium" | "low";
 	notes: string[];
 }
 
@@ -164,9 +168,12 @@ const approvalChangeSchema = z
 		owner: addressSchema,
 		spender: addressSchema,
 		amount: z.string().optional(),
+		previousAmount: z.string().optional(),
 		tokenId: z.string().optional(),
 		scope: z.enum(["token", "all"]).optional(),
 		approved: z.boolean().optional(),
+		previousApproved: z.boolean().optional(),
+		previousSpender: addressSchema.optional(),
 		symbol: z.string().optional(),
 		decimals: z.number().int().min(0).optional(),
 	})
@@ -182,6 +189,7 @@ const balanceSimulationSchema = z
 		assetChanges: z.array(assetChangeSchema),
 		approvals: z.array(approvalChangeSchema),
 		confidence: z.enum(["high", "medium", "low"]),
+		approvalsConfidence: z.enum(["high", "medium", "low"]),
 		notes: z.array(z.string()),
 	})
 	.strict();

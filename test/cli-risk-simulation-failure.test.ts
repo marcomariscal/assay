@@ -31,6 +31,7 @@ describe("cli risk label with simulation failures", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "low",
+				approvalsConfidence: "low",
 				notes: ["Simulation failed"],
 			},
 		};
@@ -64,6 +65,7 @@ describe("cli risk label with simulation failures", () => {
 				assetChanges: [],
 				approvals: [],
 				confidence: "low",
+				approvalsConfidence: "high",
 				notes: [],
 			},
 		};
@@ -73,7 +75,7 @@ describe("cli risk label with simulation failures", () => {
 		expect(riskLine).toBeDefined();
 		expect(riskLine).not.toContain("SAFE");
 		expect(riskLine).toContain("LOW");
-		expect(output).toContain("No balance changes detected (low confidence)");
+		expect(output).toContain("💰 BALANCE CHANGES (low confidence)");
 		expect(output).toContain("- None detected");
 	});
 });

@@ -49,6 +49,7 @@
 		"assetChanges": [],
 		"approvals": [],
 		"confidence": "high",
-		"notes": []
+		"notes": [],
+		"approvalsConfidence": "high"
 	}
 }

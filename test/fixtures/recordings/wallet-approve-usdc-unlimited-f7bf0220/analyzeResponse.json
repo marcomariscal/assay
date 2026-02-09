@@ -101,7 +101,8 @@
 				}
 			],
 			"confidence": "low",
-			"notes": ["Sender is a contract account; simulation is best-effort."]
+			"notes": ["Sender is a contract account; simulation is best-effort."],
+			"approvalsConfidence": "low"
 		}
 	}
 }
