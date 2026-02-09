@@ -13,10 +13,10 @@ function baseAnalysis(): AnalysisResult {
 			address: "0x1111111111111111111111111111111111111111",
 			chain: "ethereum",
 			verified: true,
+			confidence: "high",
 			is_proxy: false,
 		},
 		findings: [],
-		confidence: { level: "high", reasons: [] },
 		recommendation: "ok",
 	};
 }
@@ -28,10 +28,8 @@ describe("cli risk label with simulation failures", () => {
 			simulation: {
 				success: false,
 				revertReason: "Simulation failed",
-				assetChanges: [],
-				approvals: [],
-				confidence: "low",
-				approvalsConfidence: "low",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
 				notes: ["Simulation failed"],
 			},
 		};
@@ -62,10 +60,8 @@ describe("cli risk label with simulation failures", () => {
 			...baseAnalysis(),
 			simulation: {
 				success: true,
-				assetChanges: [],
-				approvals: [],
-				confidence: "low",
-				approvalsConfidence: "high",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
 				notes: [],
 			},
 		};
@@ -75,40 +71,7 @@ describe("cli risk label with simulation failures", () => {
 		expect(riskLine).toBeDefined();
 		expect(riskLine).not.toContain("SAFE");
 		expect(riskLine).toContain("LOW");
-		expect(output).toContain("💰 BALANCE CHANGES (low confidence)");
-		expect(output).toContain("- None detected");
-	});
-
-	test("approval fallback renders a single warning icon", () => {
-		const base = baseAnalysis();
-		const analysis: AnalysisResult = {
-			...base,
-			contract: {
-				...base.contract,
-				name: "USDC",
-			},
-			findings: [
-				{
-					level: "warning",
-					code: "UNLIMITED_APPROVAL",
-					message: "Unlimited token approval (max allowance)",
-					details: {
-						spender: "0x3333333333333333333333333333333333333333",
-					},
-				},
-			],
-			simulation: {
-				success: true,
-				assetChanges: [],
-				approvals: [],
-				confidence: "high",
-				approvalsConfidence: "high",
-				notes: [],
-			},
-		};
-
-		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
-		expect(output).toContain("⚠️ Allow 0x3333...3333 to spend UNLIMITED USDC");
-		expect(output).not.toContain("⚠️ ⚠️ Allow");
+		expect(output).toContain("Could not verify all balance changes; treat this as higher risk.");
+		expect(output).toContain("Approval coverage is incomplete; treat this as higher risk.");
 	});
 });

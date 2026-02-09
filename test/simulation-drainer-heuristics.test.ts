@@ -12,6 +12,7 @@ function baseAnalysis(): AnalysisResult {
 			address: "0x1111111111111111111111111111111111111111",
 			chain: "ethereum",
 			verified: true,
+			confidence: "high",
 			is_proxy: false,
 		},
 		findings: [
@@ -21,7 +22,6 @@ function baseAnalysis(): AnalysisResult {
 				message: "Source code verified",
 			},
 		],
-		confidence: { level: "high", reasons: [] },
 		recommendation: "ok",
 	};
 }
@@ -48,18 +48,19 @@ describe("simulation-driven drainer heuristics", () => {
 	test("bumps risk for unlimited ERC20 approval to an unknown spender", () => {
 		const analysis = withSimulation(baseAnalysis(), {
 			success: true,
-			assetChanges: [],
-			approvals: [
-				{
-					standard: "erc20",
-					token: "0x4444444444444444444444444444444444444444",
-					owner: "0x3333333333333333333333333333333333333333",
-					spender: "0x9999999999999999999999999999999999999999",
-					amount: MAX_UINT256,
-				},
-			],
-			confidence: "high",
-			approvalsConfidence: "high",
+			balances: { changes: [], confidence: "high" },
+			approvals: {
+				changes: [
+					{
+						standard: "erc20",
+						token: "0x4444444444444444444444444444444444444444",
+						owner: "0x3333333333333333333333333333333333333333",
+						spender: "0x9999999999999999999999999999999999999999",
+						amount: MAX_UINT256,
+					},
+				],
+				confidence: "high",
+			},
 			notes: [],
 		});
 
@@ -73,18 +74,19 @@ describe("simulation-driven drainer heuristics", () => {
 	test("bumps risk for unlimited Permit2 approval to an unknown spender", () => {
 		const analysis = withSimulation(baseAnalysis(), {
 			success: true,
-			assetChanges: [],
-			approvals: [
-				{
-					standard: "permit2",
-					token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-					owner: "0x3333333333333333333333333333333333333333",
-					spender: "0x9999999999999999999999999999999999999999",
-					amount: MAX_UINT160,
-				},
-			],
-			confidence: "high",
-			approvalsConfidence: "high",
+			balances: { changes: [], confidence: "high" },
+			approvals: {
+				changes: [
+					{
+						standard: "permit2",
+						token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+						owner: "0x3333333333333333333333333333333333333333",
+						spender: "0x9999999999999999999999999999999999999999",
+						amount: MAX_UINT160,
+					},
+				],
+				confidence: "high",
+			},
 			notes: [],
 		});
 
@@ -98,19 +100,20 @@ describe("simulation-driven drainer heuristics", () => {
 	test("bumps risk for ApprovalForAll granted to an unknown operator", () => {
 		const analysis = withSimulation(baseAnalysis(), {
 			success: true,
-			assetChanges: [],
-			approvals: [
-				{
-					standard: "erc721",
-					token: "0x5555555555555555555555555555555555555555",
-					owner: "0x3333333333333333333333333333333333333333",
-					spender: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-					scope: "all",
-					approved: true,
-				},
-			],
-			confidence: "high",
-			approvalsConfidence: "high",
+			balances: { changes: [], confidence: "high" },
+			approvals: {
+				changes: [
+					{
+						standard: "erc721",
+						token: "0x5555555555555555555555555555555555555555",
+						owner: "0x3333333333333333333333333333333333333333",
+						spender: "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						scope: "all",
+						approved: true,
+					},
+				],
+				confidence: "high",
+			},
 			notes: [],
 		});
 
@@ -124,25 +127,26 @@ describe("simulation-driven drainer heuristics", () => {
 	test("bumps risk for multiple outbound transfers to unknown counterparties", () => {
 		const analysis = withSimulation(baseAnalysis(), {
 			success: true,
-			assetChanges: [
-				{
-					assetType: "erc721",
-					address: "0x7777777777777777777777777777777777777777",
-					tokenId: 1n,
-					direction: "out",
-					counterparty: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-				},
-				{
-					assetType: "erc721",
-					address: "0x7777777777777777777777777777777777777777",
-					tokenId: 2n,
-					direction: "out",
-					counterparty: "0xcccccccccccccccccccccccccccccccccccccccc",
-				},
-			],
-			approvals: [],
-			confidence: "high",
-			approvalsConfidence: "high",
+			balances: {
+				changes: [
+					{
+						assetType: "erc721",
+						address: "0x7777777777777777777777777777777777777777",
+						tokenId: 1n,
+						direction: "out",
+						counterparty: "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+					},
+					{
+						assetType: "erc721",
+						address: "0x7777777777777777777777777777777777777777",
+						tokenId: 2n,
+						direction: "out",
+						counterparty: "0xcccccccccccccccccccccccccccccccccccccccc",
+					},
+				],
+				confidence: "high",
+			},
+			approvals: { changes: [], confidence: "high" },
 			notes: [],
 		});
 
@@ -155,31 +159,35 @@ describe("simulation-driven drainer heuristics", () => {
 		const uniswapV2Router = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
 		const analysis = withSimulation(baseAnalysis(), {
 			success: true,
-			assetChanges: [
-				{
-					assetType: "erc20",
-					address: "0x4444444444444444444444444444444444444444",
-					amount: 1000n,
-					direction: "out",
-				},
-				{
-					assetType: "erc20",
-					address: "0x8888888888888888888888888888888888888888",
-					amount: 900n,
-					direction: "in",
-				},
-			],
-			approvals: [
-				{
-					standard: "erc20",
-					token: "0x4444444444444444444444444444444444444444",
-					owner: "0x3333333333333333333333333333333333333333",
-					spender: uniswapV2Router,
-					amount: MAX_UINT256,
-				},
-			],
-			confidence: "high",
-			approvalsConfidence: "high",
+			balances: {
+				changes: [
+					{
+						assetType: "erc20",
+						address: "0x4444444444444444444444444444444444444444",
+						amount: 1000n,
+						direction: "out",
+					},
+					{
+						assetType: "erc20",
+						address: "0x8888888888888888888888888888888888888888",
+						amount: 900n,
+						direction: "in",
+					},
+				],
+				confidence: "high",
+			},
+			approvals: {
+				changes: [
+					{
+						standard: "erc20",
+						token: "0x4444444444444444444444444444444444444444",
+						owner: "0x3333333333333333333333333333333333333333",
+						spender: uniswapV2Router,
+						amount: MAX_UINT256,
+					},
+				],
+				confidence: "high",
+			},
 			notes: [],
 		});
 

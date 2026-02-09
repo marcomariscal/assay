@@ -9,10 +9,10 @@ function baseAnalysis(): AnalysisResult {
 			address: "0x1111111111111111111111111111111111111111",
 			chain: "ethereum",
 			verified: true,
+			confidence: "high",
 			is_proxy: false,
 		},
 		findings: [],
-		confidence: { level: "high", reasons: [] },
 		recommendation: "ok",
 	};
 }
@@ -40,10 +40,8 @@ describe("applySimulationVerdict", () => {
 			simulation: {
 				success: false,
 				revertReason: "execution reverted: transferFrom failed",
-				assetChanges: [],
-				approvals: [],
-				confidence: "low",
-				approvalsConfidence: "low",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
 				notes: ["reverted"],
 			},
 		};
@@ -58,10 +56,8 @@ describe("applySimulationVerdict", () => {
 			simulation: {
 				success: false,
 				revertReason: "Simulation not run",
-				assetChanges: [],
-				approvals: [],
-				confidence: "low",
-				approvalsConfidence: "low",
+				balances: { changes: [], confidence: "none" },
+				approvals: { changes: [], confidence: "none" },
 				notes: ["Simulation not run"],
 			},
 		};
@@ -75,10 +71,8 @@ describe("applySimulationVerdict", () => {
 			recommendation: "warning",
 			simulation: {
 				success: true,
-				assetChanges: [],
-				approvals: [],
-				confidence: "high",
-				approvalsConfidence: "high",
+				balances: { changes: [], confidence: "high" },
+				approvals: { changes: [], confidence: "high" },
 				notes: [],
 			},
 		};

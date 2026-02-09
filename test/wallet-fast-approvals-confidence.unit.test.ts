@@ -39,8 +39,8 @@ describe("wallet-fast approvals confidence", () => {
 			budgetMs: 0,
 		});
 
-		expect(result.approvals).toEqual([]);
-		expect(result.approvalsConfidence).toBe("high");
+		expect(result.approvals.changes).toEqual([]);
+		expect(result.approvals.confidence).toBe("high");
 		expect(result.notes).toContain(
 			"Wallet-fast budget (0ms) reached; skipped ERC-20 metadata lookups.",
 		);

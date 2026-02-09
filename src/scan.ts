@@ -17,7 +17,6 @@ import type {
 	AnalysisResult,
 	BalanceSimulationResult,
 	Chain,
-	Confidence,
 	Config,
 	Finding,
 	FindingLevel,
@@ -114,8 +113,7 @@ export async function scanWithAnalysis(
 		options?.timings,
 		{ offline: options?.offline, mode: analyzeOptions?.mode },
 	);
-	const withSimulation = simulation ? { ...mergedAnalysis, simulation } : mergedAnalysis;
-	const finalAnalysis = applySimulationVerdict(normalizedInput, withSimulation);
+	const finalAnalysis = applySimulationVerdict(normalizedInput, { ...mergedAnalysis, simulation });
 	const response = buildAnalyzeResponse(normalizedInput, finalAnalysis, options?.requestId);
 	return { analysis: finalAnalysis, response };
 }
@@ -165,7 +163,6 @@ export function buildScanResult(input: ScanInput, analysis: AnalysisResult): Sca
 		input,
 		intent: analysis.intent,
 		recommendation: analysis.recommendation,
-		confidence: scoreConfidence(analysis.confidence),
 		findings: mapFindings(analysis.findings),
 		contract: buildContractInfo(analysis),
 		simulation: analysis.simulation ? mapSimulation(analysis.simulation) : undefined,
@@ -226,6 +223,7 @@ function buildContractInfo(analysis: AnalysisResult): ContractInfo {
 		isProxy: analysis.contract.is_proxy,
 		implementation: analysis.contract.implementation,
 		verifiedSource: analysis.contract.verified,
+		confidence: analysis.contract.confidence,
 		tags,
 	};
 }
@@ -237,8 +235,10 @@ async function runBalanceSimulation(
 	progress: ScanProgress | undefined,
 	timings: TimingStore | undefined,
 	options?: { offline?: boolean; mode?: "default" | "wallet" },
-): Promise<BalanceSimulationResult | undefined> {
-	if (!input.calldata) return undefined;
+): Promise<BalanceSimulationResult> {
+	if (!input.calldata) {
+		return buildSimulationNotRun(undefined);
+	}
 
 	progress?.({ provider: "Simulation", status: "start" });
 
@@ -269,51 +269,49 @@ function shouldRunSimulation(config?: Config): boolean {
 }
 
 function mapSimulation(simulation: BalanceSimulationResult): ScanBalanceSimulationResult {
+	const status = simulation.success
+		? "success"
+		: simulation.balances.confidence === "none" && simulation.approvals.confidence === "none"
+			? "not_run"
+			: "failed";
+
 	return {
-		success: simulation.success,
+		status,
 		revertReason: simulation.revertReason,
 		gasUsed: simulation.gasUsed?.toString(),
 		effectiveGasPrice: simulation.effectiveGasPrice?.toString(),
 		nativeDiff: simulation.nativeDiff?.toString(),
-		assetChanges: simulation.assetChanges.map((change) => ({
-			assetType: change.assetType,
-			address: change.address,
-			tokenId: change.tokenId?.toString(),
-			amount: change.amount?.toString(),
-			direction: change.direction,
-			counterparty: change.counterparty,
-			symbol: change.symbol,
-			decimals: change.decimals,
-		})),
-		approvals: simulation.approvals.map((approval) => ({
-			standard: approval.standard,
-			token: approval.token,
-			owner: approval.owner,
-			spender: approval.spender,
-			amount: approval.amount?.toString(),
-			previousAmount: approval.previousAmount?.toString(),
-			tokenId: approval.tokenId?.toString(),
-			scope: approval.scope,
-			approved: approval.approved,
-			previousApproved: approval.previousApproved,
-			previousSpender: approval.previousSpender,
-			symbol: approval.symbol,
-			decimals: approval.decimals,
-		})),
-		confidence: simulation.confidence,
-		approvalsConfidence: simulation.approvalsConfidence,
+		balances: {
+			changes: simulation.balances.changes.map((change) => ({
+				assetType: change.assetType,
+				address: change.address,
+				tokenId: change.tokenId?.toString(),
+				amount: change.amount?.toString(),
+				direction: change.direction,
+				counterparty: change.counterparty,
+				symbol: change.symbol,
+				decimals: change.decimals,
+			})),
+			confidence: simulation.balances.confidence,
+		},
+		approvals: {
+			changes: simulation.approvals.changes.map((approval) => ({
+				standard: approval.standard,
+				token: approval.token,
+				owner: approval.owner,
+				spender: approval.spender,
+				amount: approval.amount?.toString(),
+				previousAmount: approval.previousAmount?.toString(),
+				tokenId: approval.tokenId?.toString(),
+				scope: approval.scope,
+				approved: approval.approved,
+				previousApproved: approval.previousApproved,
+				previousSpender: approval.previousSpender,
+				symbol: approval.symbol,
+				decimals: approval.decimals,
+			})),
+			confidence: simulation.approvals.confidence,
+		},
 		notes: simulation.notes,
 	};
-}
-
-function scoreConfidence(confidence: Confidence): number {
-	const base = confidence.level === "high" ? 0.9 : confidence.level === "medium" ? 0.6 : 0.3;
-	const penalty = Math.min(confidence.reasons.length * 0.05, 0.2);
-	return clamp(base - penalty, 0, 1);
-}
-
-function clamp(value: number, min: number, max: number): number {
-	if (value < min) return min;
-	if (value > max) return max;
-	return value;
 }
