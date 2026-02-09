@@ -216,12 +216,6 @@ async function main() {
 		await runMcp(args.slice(1));
 		return;
 	}
-	if (command === "analyze") {
-		console.error(
-			renderError("Error: `assay analyze` was removed. Use `assay scan <address>` instead."),
-		);
-		process.exit(1);
-	}
 
 	console.error(`Unknown command: ${command}`);
 	printUsage();

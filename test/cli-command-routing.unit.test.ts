@@ -13,10 +13,9 @@ async function runCli(args: string[]) {
 }
 
 describe("cli command routing", () => {
-	test("analyze command is removed and points users to scan", async () => {
+	test("analyze is treated as an unknown command", async () => {
 		const result = await runCli(["analyze", "0x0000000000000000000000000000000000000001"]);
 		expect(result.exitCode).toBe(1);
-		expect(result.stderr).toContain("assay analyze");
-		expect(result.stderr).toContain("assay scan <address>");
+		expect(result.stderr).toContain("Unknown command: analyze");
 	});
 });
