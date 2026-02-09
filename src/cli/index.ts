@@ -163,12 +163,8 @@ Options:
   --expected     Expected spender address
 
 Environment:
-  ASSAY_UPSTREAM        Default upstream JSON-RPC URL for assay proxy
-  ETHERSCAN_API_KEY       Etherscan API key (enables full analysis)
-  BASESCAN_API_KEY        BaseScan API key
-  ARBISCAN_API_KEY        Arbiscan API key
-  OPTIMISM_API_KEY        Optimistic Etherscan API key
-  POLYGONSCAN_API_KEY     PolygonScan API key
+  ASSAY_UPSTREAM          Default upstream JSON-RPC URL for assay proxy
+  ETHERSCAN_API_KEY       Etherscan V2 API key (used across supported chains)
 
 Examples:
   assay analyze 0x1234...

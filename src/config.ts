@@ -64,10 +64,10 @@ function loadEnvConfig(): Config {
 	return {
 		etherscanKeys: {
 			ethereum: sharedEtherscanKey,
-			base: process.env.BASESCAN_API_KEY ?? sharedEtherscanKey,
-			arbitrum: process.env.ARBISCAN_API_KEY ?? sharedEtherscanKey,
-			optimism: process.env.OPTIMISM_API_KEY ?? sharedEtherscanKey,
-			polygon: process.env.POLYGONSCAN_API_KEY ?? sharedEtherscanKey,
+			base: sharedEtherscanKey,
+			arbitrum: sharedEtherscanKey,
+			optimism: sharedEtherscanKey,
+			polygon: sharedEtherscanKey,
 		},
 	};
 }
