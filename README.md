@@ -142,7 +142,7 @@ Tools exposed:
 ╰─────────────────────────────────────────────────────────────────╯
 ```
 
-**Exit codes (not a guarantee):**
+**Exit codes (current behavior):**
 - `assay analyze` / `assay approval`:
   - `0` — OK per configured checks (no findings at/above the built-in thresholds)
   - `1` — CAUTION/WARNING
