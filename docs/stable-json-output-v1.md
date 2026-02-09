@@ -1,9 +1,9 @@
-# Stable JSON Output v1 (`rugscan scan --format json`)
+# Stable JSON Output v1 (`assay scan --format json`)
 
-This document defines a **stable, versioned** JSON contract intended for programmatic integrations (SDK/MCP/CI) consuming rugscan scan output.
+This document defines a **stable, versioned** JSON contract intended for programmatic integrations (SDK/MCP/CI) consuming assay scan output.
 
 Applies to:
-- `rugscan scan --format json`
+- `assay scan --format json`
 - the local server endpoint `POST /v1/scan`
 
 ## Contract

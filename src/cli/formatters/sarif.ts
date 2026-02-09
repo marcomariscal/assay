@@ -39,7 +39,7 @@ export function formatSarif(response: AnalyzeResponse): SarifLog {
 			{
 				tool: {
 					driver: {
-						name: "rugscan",
+						name: "assay",
 						rules,
 					},
 				},

@@ -12,7 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 describe("jsonrpc proxy - recording", () => {
 	test("writes a recording bundle when recordDir is set", async () => {
-		const recordDir = path.join(os.tmpdir(), `rugscan-proxy-record-${Date.now()}`);
+		const recordDir = path.join(os.tmpdir(), `assay-proxy-record-${Date.now()}`);
 
 		const upstreamSeen: unknown[] = [];
 		const upstream = Bun.serve({

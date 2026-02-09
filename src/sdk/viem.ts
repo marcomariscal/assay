@@ -105,7 +105,7 @@ async function extractSendRawTransactionCalldata(params: unknown): Promise<Calld
 	}
 }
 
-export type RugscanViemOnRisk = (event: {
+export type AssayViemOnRisk = (event: {
 	method: "eth_sendTransaction" | "eth_sendRawTransaction";
 	analysis: AnalysisResult;
 	response: AnalyzeResponse;
@@ -114,19 +114,19 @@ export type RugscanViemOnRisk = (event: {
 	simulationSuccess: boolean;
 }) => void;
 
-export type RugscanScanFn = (
+export type AssayScanFn = (
 	input: ScanInput,
 	options?: ScanOptions,
 ) => Promise<{ analysis: AnalysisResult; response: AnalyzeResponse }>;
 
-export type RugscanTransportErrorReason =
+export type AssayTransportErrorReason =
 	| "risky"
 	| "simulation_failed"
 	| "analysis_error"
 	| "invalid_params";
 
-export class RugscanTransportError extends Error {
-	reason: RugscanTransportErrorReason;
+export class AssayTransportError extends Error {
+	reason: AssayTransportErrorReason;
 	method: string;
 	threshold?: Recommendation;
 	recommendation?: Recommendation;
@@ -136,7 +136,7 @@ export class RugscanTransportError extends Error {
 
 	constructor(options: {
 		message: string;
-		reason: RugscanTransportErrorReason;
+		reason: AssayTransportErrorReason;
 		method: string;
 		threshold?: Recommendation;
 		recommendation?: Recommendation;
@@ -146,7 +146,7 @@ export class RugscanTransportError extends Error {
 		cause?: unknown;
 	}) {
 		super(options.message, options.cause === undefined ? undefined : { cause: options.cause });
-		this.name = "RugscanTransportError";
+		this.name = "AssayTransportError";
 		this.reason = options.reason;
 		this.method = options.method;
 		this.threshold = options.threshold;
@@ -157,15 +157,15 @@ export class RugscanTransportError extends Error {
 	}
 }
 
-export interface RugscanViemTransportOptions {
+export interface AssayViemTransportOptions {
 	upstream: Transport;
 	config: Config;
 	threshold: Recommendation;
-	onRisk?: RugscanViemOnRisk;
-	scanFn?: RugscanScanFn;
+	onRisk?: AssayViemOnRisk;
+	scanFn?: AssayScanFn;
 }
 
-export function createRugscanViemTransport(options: RugscanViemTransportOptions): Transport {
+export function createAssayViemTransport(options: AssayViemTransportOptions): Transport {
 	return (params) => {
 		const upstream = options.upstream(params);
 		const upstreamRequest = upstream.request;
@@ -184,8 +184,8 @@ export function createRugscanViemTransport(options: RugscanViemTransportOptions)
 					? extractSendTransactionCalldata(args.params)
 					: await extractSendRawTransactionCalldata(args.params);
 			if (!extracted) {
-				throw new RugscanTransportError({
-					message: `Rugscan blocked: invalid params for ${method}`,
+				throw new AssayTransportError({
+					message: `Assay blocked: invalid params for ${method}`,
 					reason: "invalid_params",
 					method,
 				});
@@ -199,8 +199,8 @@ export function createRugscanViemTransport(options: RugscanViemTransportOptions)
 			};
 			const validated = scanInputSchema.safeParse(input);
 			if (!validated.success) {
-				throw new RugscanTransportError({
-					message: `Rugscan blocked: invalid transaction fields for ${method}`,
+				throw new AssayTransportError({
+					message: `Assay blocked: invalid transaction fields for ${method}`,
 					reason: "invalid_params",
 					method,
 				});
@@ -219,8 +219,8 @@ export function createRugscanViemTransport(options: RugscanViemTransportOptions)
 				response = result.response;
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "analysis failed";
-				throw new RugscanTransportError({
-					message: `Rugscan blocked: ${message}`,
+				throw new AssayTransportError({
+					message: `Assay blocked: ${message}`,
 					reason: "analysis_error",
 					method,
 					cause: error,
@@ -244,8 +244,8 @@ export function createRugscanViemTransport(options: RugscanViemTransportOptions)
 					simulationSuccess,
 				});
 
-				throw new RugscanTransportError({
-					message: `Rugscan blocked transaction (${method})`,
+				throw new AssayTransportError({
+					message: `Assay blocked transaction (${method})`,
 					reason: !simulationSuccess ? "simulation_failed" : "risky",
 					method,
 					threshold: options.threshold,

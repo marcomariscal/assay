@@ -15,7 +15,7 @@ M9 is a set of *follow-ups* that make that latency work safer (regression covera
   - Output should match the existing `TxFixture` shape used by e2e suites under `test/fixtures/txs/*`.
 
 ## Non-Goals
-- Implementing a full `rugscan analyze-tx <txHash>` product surface (that’s a bigger feature; out of scope here).
+- Implementing a full `assay analyze-tx <txHash>` product surface (that’s a bigger feature; out of scope here).
 - Adding new simulation semantics beyond defaults/fixture generation.
 - Reworking the Anvil warm-reset design from PR #21.
 

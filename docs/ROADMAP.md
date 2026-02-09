@@ -1,4 +1,4 @@
-# Rugscan Roadmap ("Blowfish, but open source and local")
+# Assay Roadmap ("Blowfish, but open source and local")
 
 Effort scale:
 - S: 0.5-1 day
@@ -9,7 +9,7 @@ Effort scale:
 The phases below reflect the simplification plan and a staged path to 99% and 99.9% coverage.
 
 ## Phase 1: Core simplification (minimal local CLI)
-Goal: ship a fast, local `rugscan check` and `rugscan approval` with high-signal findings only.
+Goal: ship a fast, local `assay check` and `assay approval` with high-signal findings only.
 
 Tasks (Phase 1)
 1) Collapse CLI to `check` + `approval` only, remove `scan` and `analyze`
@@ -41,7 +41,7 @@ Tasks (Phase 1)
    - Effort: S
 
 Phase 1 success criteria
-- `rugscan check 0x...` completes in seconds and prints 1-3 findings
+- `assay check 0x...` completes in seconds and prints 1-3 findings
 - No AI, server, or simulation dependencies
 - Exit codes reflect severity (0 ok, 1 risky, 2 danger)
 - No external writes, no background services

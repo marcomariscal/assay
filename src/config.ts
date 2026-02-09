@@ -6,15 +6,10 @@ import type { AllowlistConfig, Chain, Config, SimulationConfig } from "./types";
 
 const VALID_CHAINS: Chain[] = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
 
-export const DEFAULT_USER_CONFIG_PATH = path.join(
-	os.homedir(),
-	".config",
-	"rugscan",
-	"config.json",
-);
+export const DEFAULT_USER_CONFIG_PATH = path.join(os.homedir(), ".config", "assay", "config.json");
 
 const DEFAULT_CONFIG_PATHS = [
-	path.resolve(process.cwd(), "rugscan.config.json"),
+	path.resolve(process.cwd(), "assay.config.json"),
 	DEFAULT_USER_CONFIG_PATH,
 ];
 
@@ -27,7 +22,7 @@ export async function loadConfig(): Promise<Config> {
 
 export function resolveUserConfigPathForWrite(): string {
 	// Allow tests and power-users to redirect the config path.
-	const explicitPath = process.env.RUGSCAN_CONFIG;
+	const explicitPath = process.env.ASSAY_CONFIG;
 	return explicitPath && explicitPath.trim().length > 0 ? explicitPath : DEFAULT_USER_CONFIG_PATH;
 }
 
@@ -49,7 +44,7 @@ export async function saveRpcUrl(options: { chain: Chain; rpcUrl: string }): Pro
 }
 
 function resolveConfigPath(): string | undefined {
-	const explicitPath = process.env.RUGSCAN_CONFIG;
+	const explicitPath = process.env.ASSAY_CONFIG;
 	if (explicitPath) {
 		if (!existsSync(explicitPath)) {
 			throw new Error(`Config file not found at ${explicitPath}`);

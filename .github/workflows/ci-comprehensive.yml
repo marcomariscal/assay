@@ -12,8 +12,8 @@ jobs:
       contents: read
 
     env:
-      RUGSCAN_LIVE_TESTS: "1"
-      RUGSCAN_FORK_E2E: "1"
+      ASSAY_LIVE_TESTS: "1"
+      ASSAY_FORK_E2E: "1"
 
     steps:
       - uses: actions/checkout@v4

@@ -71,8 +71,8 @@ describe("mcp server (unit)", () => {
 			stderr: "pipe",
 			env: {
 				...process.env,
-				RUGSCAN_MCP_STUB_DEPS: "1",
-				RUGSCAN_CONFIG: "test/fixtures/empty-config.json",
+				ASSAY_MCP_STUB_DEPS: "1",
+				ASSAY_CONFIG: "test/fixtures/empty-config.json",
 			},
 		});
 
@@ -126,7 +126,7 @@ describe("mcp server (unit)", () => {
 					method: "initialize",
 					params: {
 						protocolVersion: "2024-11-05",
-						clientInfo: { name: "rugscan-test", version: "0" },
+						clientInfo: { name: "assay-test", version: "0" },
 						capabilities: {},
 					},
 				}),
@@ -143,7 +143,7 @@ describe("mcp server (unit)", () => {
 				}),
 			);
 			const list = await readMessage(reader);
-			expect(JSON.stringify(list)).toContain("rugscan.analyzeTransaction");
+			expect(JSON.stringify(list)).toContain("assay.analyzeTransaction");
 
 			await writeStdin(
 				encodeMessage({
@@ -151,7 +151,7 @@ describe("mcp server (unit)", () => {
 					id: 3,
 					method: "tools/call",
 					params: {
-						name: "rugscan.analyzeTransaction",
+						name: "assay.analyzeTransaction",
 						arguments: {
 							chain: "ethereum",
 							to: "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
@@ -198,8 +198,8 @@ describe("mcp server (unit)", () => {
 			stderr: "pipe",
 			env: {
 				...process.env,
-				RUGSCAN_MCP_STUB_DEPS: "1",
-				RUGSCAN_CONFIG: "test/fixtures/empty-config.json",
+				ASSAY_MCP_STUB_DEPS: "1",
+				ASSAY_CONFIG: "test/fixtures/empty-config.json",
 			},
 		});
 
@@ -253,7 +253,7 @@ describe("mcp server (unit)", () => {
 					method: "initialize",
 					params: {
 						protocolVersion: "2024-11-05",
-						clientInfo: { name: "rugscan-test", version: "0" },
+						clientInfo: { name: "assay-test", version: "0" },
 						capabilities: {},
 					},
 				}),
@@ -267,7 +267,7 @@ describe("mcp server (unit)", () => {
 					method: "initialize",
 					params: {
 						protocolVersion: "2024-11-05",
-						clientInfo: { name: "rugscan-test", version: "0" },
+						clientInfo: { name: "assay-test", version: "0" },
 						capabilities: {},
 					},
 				}),
@@ -306,8 +306,8 @@ describe("mcp server (unit)", () => {
 			stderr: "pipe",
 			env: {
 				...process.env,
-				RUGSCAN_MCP_STUB_DEPS: "1",
-				RUGSCAN_CONFIG: "test/fixtures/empty-config.json",
+				ASSAY_MCP_STUB_DEPS: "1",
+				ASSAY_CONFIG: "test/fixtures/empty-config.json",
 			},
 		});
 
@@ -360,7 +360,7 @@ describe("mcp server (unit)", () => {
 					id: 1,
 					method: "tools/call",
 					params: {
-						name: "rugscan.analyzeTransaction",
+						name: "assay.analyzeTransaction",
 						arguments: {
 							chain: "ethereum",
 							// missing required fields like to/data
@@ -377,7 +377,7 @@ describe("mcp server (unit)", () => {
 			expect(error.message).toBe("Invalid tool arguments");
 			const data = error.data;
 			if (!isRecord(data)) throw new Error("Expected MCP error.data to be an object");
-			expect(data.tool).toBe("rugscan.analyzeTransaction");
+			expect(data.tool).toBe("assay.analyzeTransaction");
 			expect(Array.isArray(data.issues)).toBe(true);
 		} finally {
 			if (webWriter) {

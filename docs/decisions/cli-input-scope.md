@@ -22,10 +22,10 @@ Status: proposed
 Support exactly two input shapes:
 
 1) Address scan (existing usage)
-- `rugscan scan <address> [--chain <chain>]`
+- `assay scan <address> [--chain <chain>]`
 
 2) Calldata scan (canonical JSON)
-- `rugscan scan --calldata <json|@file|-> [--chain <chain>]`
+- `assay scan --calldata <json|@file|-> [--chain <chain>]`
 
 Calldata JSON schema (canonical):
 ```json

@@ -2,9 +2,9 @@ import { z } from "zod";
 import type { Recommendation as BaseRecommendation } from "./types";
 
 /**
- * Stable JSON schema version for `rugscan scan --format json` and `POST /v1/scan`.
+ * Stable JSON schema version for `assay scan --format json` and `POST /v1/scan`.
  */
-export const RUGSCAN_SCHEMA_VERSION: 1 = 1;
+export const ASSAY_SCHEMA_VERSION: 1 = 1;
 
 export type Recommendation = BaseRecommendation;
 
@@ -227,7 +227,7 @@ export const scanResultSchema = z
 
 export const analyzeResponseSchema = z
 	.object({
-		schemaVersion: z.literal(RUGSCAN_SCHEMA_VERSION).optional().default(RUGSCAN_SCHEMA_VERSION),
+		schemaVersion: z.literal(ASSAY_SCHEMA_VERSION).optional().default(ASSAY_SCHEMA_VERSION),
 		requestId: z.string().uuid(),
 		scan: scanResultSchema,
 	})

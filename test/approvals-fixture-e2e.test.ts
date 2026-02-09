@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const test = process.env.RUGSCAN_FORK_E2E === "1" ? bunTest : bunTest.skip;
+const test = process.env.ASSAY_FORK_E2E === "1" ? bunTest : bunTest.skip;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -84,7 +84,7 @@ async function runScanForFixture(fixture: TxFixture) {
 
 	const configPath = path.join(
 		os.tmpdir(),
-		`rugscan-test-sim-${fixture.txHash.slice(0, 10)}-${Date.now()}.json`,
+		`assay-test-sim-${fixture.txHash.slice(0, 10)}-${Date.now()}.json`,
 	);
 	await Bun.write(
 		configPath,
@@ -94,7 +94,7 @@ async function runScanForFixture(fixture: TxFixture) {
 	const result = await runCli(
 		["scan", "--calldata", calldata, "--format", "json", "--fail-on", "danger", "--quiet"],
 		{
-			RUGSCAN_CONFIG: configPath,
+			ASSAY_CONFIG: configPath,
 			NO_COLOR: "1",
 			PATH: `${anvilDir}:${bunDir}:${process.env.PATH ?? ""}`,
 		},

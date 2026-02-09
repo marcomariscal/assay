@@ -118,7 +118,7 @@ function handleJsonRpc(req: JsonRpcRequest): unknown {
 		return { jsonrpc: "2.0", id, result: "0x1" };
 	}
 	if (method === "eth_getCode") {
-		// Non-empty bytecode so rugscan treats it as a contract.
+		// Non-empty bytecode so assay treats it as a contract.
 		return { jsonrpc: "2.0", id, result: "0x60006000" };
 	}
 	if (method === "eth_getStorageAt") {

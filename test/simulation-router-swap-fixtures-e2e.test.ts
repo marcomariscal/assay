@@ -5,7 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	isTxFixture,
-	runRugscanScanWithTempForkConfig,
+	runAssayScanWithTempForkConfig,
 	type TxFixture,
 } from "./helpers/routerSwapFixtures";
 
@@ -19,8 +19,8 @@ function isSimulationResult(value: unknown): value is Record<string, unknown> {
 
 const fixturesDir = fileURLToPath(new URL("./fixtures/txs", import.meta.url));
 const anvilPath =
-	process.env.RUGSCAN_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
-const forkE2E = process.env.RUGSCAN_FORK_E2E === "1";
+	process.env.ASSAY_ANVIL_PATH ?? path.join(os.homedir(), ".foundry", "bin", "anvil");
+const forkE2E = process.env.ASSAY_FORK_E2E === "1";
 
 const fixtureFiles = readdirSync(fixturesDir)
 	.filter((file) => file.endsWith(".json"))
@@ -46,7 +46,7 @@ describe("router swap fixtures e2e", () => {
 			`${fileName} simulates successfully`,
 			async () => {
 				const fixture = await loadFixture(fileName);
-				const result = await runRugscanScanWithTempForkConfig({ fixture, format: "json" });
+				const result = await runAssayScanWithTempForkConfig({ fixture, format: "json" });
 
 				expect(result.exitCode).toBe(0);
 
@@ -56,7 +56,7 @@ describe("router swap fixtures e2e", () => {
 				} catch (error) {
 					const message = error instanceof Error ? error.message : String(error);
 					throw new Error(
-						`Failed to parse rugscan JSON output (${fixture.name}): ${message}\n` +
+						`Failed to parse assay JSON output (${fixture.name}): ${message}\n` +
 							`stdout:\n${result.stdout}\n` +
 							`stderr:\n${result.stderr}\n`,
 					);

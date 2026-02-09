@@ -3,8 +3,8 @@ import { analyzeCalldata } from "./analyzers/calldata";
 import { buildIntent } from "./intent";
 import {
 	type AnalyzeResponse,
+	ASSAY_SCHEMA_VERSION,
 	type ContractInfo,
-	RUGSCAN_SCHEMA_VERSION,
 	type BalanceSimulationResult as ScanBalanceSimulationResult,
 	type ScanFinding,
 	type ScanInput,
@@ -154,7 +154,7 @@ export function buildAnalyzeResponse(
 	requestId?: string,
 ): AnalyzeResponse {
 	return {
-		schemaVersion: RUGSCAN_SCHEMA_VERSION,
+		schemaVersion: ASSAY_SCHEMA_VERSION,
 		requestId: requestId ?? crypto.randomUUID(),
 		scan: buildScanResult(input, analysis),
 	};

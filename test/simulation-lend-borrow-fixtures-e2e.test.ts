@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const test = process.env.RUGSCAN_FORK_E2E === "1" ? bunTest : bunTest.skip;
+const test = process.env.ASSAY_FORK_E2E === "1" ? bunTest : bunTest.skip;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
@@ -149,7 +149,7 @@ describe("lend/borrow simulation fixtures e2e", () => {
 			const result = await runCli(
 				["scan", "--calldata", calldata, "--format", "json", "--fail-on", "danger", "--quiet"],
 				{
-					RUGSCAN_CONFIG: fixture.configPath,
+					ASSAY_CONFIG: fixture.configPath,
 					NO_COLOR: "1",
 					PATH: bunDir,
 				},

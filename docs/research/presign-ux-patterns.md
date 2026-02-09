@@ -24,9 +24,9 @@ Notes:
 | Rainbow | Review screens focus on human-readable swap/bridge details (network, min received, fees, slippage, gas) with editable gas. | No raw data export mentioned in support docs. | Human-readable summary fields. | Rainbow support docs for swap/bridge review screens. |
 | Coinbase Wallet / Base app | Official docs emphasize network fee customization (max fee, priority fee, gas limit). | No raw data export mentioned in official docs. | Human-readable summary + gas fee customization. | Coinbase Help docs for adjusting network fees. |
 
-Implications for Rugscan:
+Implications for Assay:
 - Do not rely on wallets to give you a ready JSON export. Offer multiple input paths: raw hex, calldata + to/value, or JSON-RPC payload.
-- Provide a one-click "copy for Rugscan" in your own UI if you build a wallet plugin/extension.
+- Provide a one-click "copy for Assay" in your own UI if you build a wallet plugin/extension.
 
 ## 2) Existing pre-sign security tools
 
@@ -47,7 +47,7 @@ Notes:
 - `cast send` (Foundry) accepts raw hex data via `--data`, or ABI signature + args, with flags for `--rpc-url`, `--chain`, `--value`, gas options, etc. This is a clear multi-input model that favors flags and optional raw hex overrides.
 - `slither` is path-based (analyze a project or file) rather than transaction-input driven. Its CLI shows a "single command with options" pattern for security tooling, not JSON payloads.
 
-### Recommended CLI inputs for Rugscan
+### Recommended CLI inputs for Assay
 Support multiple formats and normalize internally to a single canonical schema:
 
 1) JSON (stdin or file)
@@ -66,9 +66,9 @@ Support multiple formats and normalize internally to a single canonical schema:
 - Optional: accept `--abi` + `--sig` + args, encode calldata internally.
 
 ### Ergonomics for wallet users
-- If a wallet exposes only raw hex calldata, allow: `rugscan --to 0x... --value 0 --data 0x... --chain-id 1`.
-- If a wallet exposes decoded ABI, allow: `rugscan --to 0x... --sig "approve(address,uint256)" 0xSpender 0xffff...`.
-- If a dapp can provide the JSON-RPC request, allow `rugscan --json` via stdin: `cat tx.json | rugscan --json`.
+- If a wallet exposes only raw hex calldata, allow: `assay --to 0x... --value 0 --data 0x... --chain-id 1`.
+- If a wallet exposes decoded ABI, allow: `assay --to 0x... --sig "approve(address,uint256)" 0xSpender 0xffff...`.
+- If a dapp can provide the JSON-RPC request, allow `assay --json` via stdin: `cat tx.json | assay --json`.
 
 ## 4) Browser extension vs RPC proxy vs wallet plugin
 

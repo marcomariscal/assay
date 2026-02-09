@@ -1,4 +1,4 @@
-# Rugscan Target Architecture
+# Assay Target Architecture
 
 This is the desired architecture for the simplified, local-first CLI.
 
@@ -39,7 +39,7 @@ This is the desired architecture for the simplified, local-first CLI.
                  | - exit code           |
                  +-----------------------+
 
-## Data flow for `rugscan check <address>`
+## Data flow for `assay check <address>`
 
 1) CLI parses address + chain; config is loaded from env/file.
 2) Orchestrator normalizes address and starts provider calls in parallel:

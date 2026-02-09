@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "rugscan",
+      "name": "assay",
       "dependencies": {
         "picocolors": "^1.1.1",
         "viem": "^2.45.1",

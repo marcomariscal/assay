@@ -34,7 +34,7 @@ describe("simulateBalance", () => {
 		const originalHome = process.env.HOME;
 		const originalPath = process.env.PATH;
 
-		const tmpHome = mkdtempSync(path.join(os.tmpdir(), "rugscan-home-"));
+		const tmpHome = mkdtempSync(path.join(os.tmpdir(), "assay-home-"));
 		process.env.HOME = tmpHome;
 		process.env.PATH = tmpHome;
 

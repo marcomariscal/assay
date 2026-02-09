@@ -1,7 +1,7 @@
 # Issue #41 — Approval diffs engine (wallet-fast) — workflows plan
 
 ## Context
-Issue: https://github.com/marcomariscal/rugscan/issues/41
+Issue: #41
 
 Goal: make approval-change detection **trustworthy + fast** in wallet mode, across:
 - ERC-20 approvals (event + allowance diff)
@@ -153,7 +153,7 @@ No network calls; pure deterministic mocks.
 
 Practical options:
 - add wallet-mode contract test around `renderResultBox` using the recording fixture’s analysis payload.
-- add e2e fixture (`RUGSCAN_FORK_E2E=1`) for approval txs to verify integrated Anvil path.
+- add e2e fixture (`ASSAY_FORK_E2E=1`) for approval txs to verify integrated Anvil path.
 
 ## 4.3 Schema/contract tests
 Update tests that construct `BalanceSimulationResult` literals:

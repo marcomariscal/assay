@@ -20,7 +20,7 @@
 If any assumption is off, confirm before implementation.
 
 ## Success Criteria
-- CLI: `rugscan scan --format json|sarif` emits valid structured output and predictable exit codes.
+- CLI: `assay scan --format json|sarif` emits valid structured output and predictable exit codes.
 - REST: `POST /v1/scan` returns `AnalyzeResponse` for both `address` and `calldata` inputs.
 - SDK: typed client wraps REST and exposes `scan()` with the same request/response models.
 - All interfaces use identical `ScanResult`/`AnalyzeResponse` definitions.
@@ -97,7 +97,7 @@ Notes:
 ## 2) CLI (format + exit codes)
 
 ### 2.1 Commands
-- `rugscan scan [address]` (existing or new entrypoint)
+- `assay scan [address]` (existing or new entrypoint)
 - Add `--calldata` to accept JSON string or file (see spec below).
 
 ### 2.2 CLI argument spec
