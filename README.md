@@ -10,7 +10,7 @@ Pre-transaction security analysis for EVM contracts. Know what you're signing be
 - **Protocol matching** — DeFiLlama integration for known protocols
 - **Approval analysis** — Detect risky approval patterns before signing
 - **Phishing detection** — Etherscan labels for known phishing/scam addresses
-- **Confidence levels** — Honest about what we can't see
+- **Schema v2 output** — Section-level confidence in JSON (`contract`, `simulation.balances`, `simulation.approvals`)
 
 ## Install
 
@@ -19,8 +19,8 @@ Pre-transaction security analysis for EVM contracts. Know what you're signing be
 For now, run from source:
 
 ```bash
-git clone <REPO_URL>
-cd <REPO_DIR>
+git clone https://github.com/marcomariscal/Assay.git
+cd Assay
 bun install
 
 # examples below use `assay ...`; when running from source, replace with:
@@ -133,13 +133,12 @@ Tools exposed:
 │  Verified: ✓                                                    │
 │  Address: 0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48            │
 │  Proxy: Yes (0x43506849d7c04f9138d1a2050bbf3a0c054402dd)        │
-│  Confidence: HIGH                                               │
 ├─────────────────────────────────────────────────────────────────┤
-│  Findings:                                                      │
-│  ✓ Source code verified: FiatTokenProxy [VERIFIED]              │
-│  ⚠️ Upgradeable proxy (eip1967) - code can change [UPGRADEABLE] │
+│  💰 BALANCE CHANGES (low confidence)                            │
+│  - No balance changes detected                                  │
 ├─────────────────────────────────────────────────────────────────┤
-│           upgrade authority...                                  │
+│  🔐 APPROVALS (high confidence)                                 │
+│  ⚠️ Allow 0x0000...8BA3 to spend UNLIMITED USDC (was 0)         │
 ╰─────────────────────────────────────────────────────────────────╯
 ```
 
@@ -210,35 +209,29 @@ Notes:
 ## Library Usage
 
 ```typescript
-import { analyze, analyzeApproval } from "assay";
+import { scanAddress, scanCalldata } from "assay";
 
-const result = await analyze("0x1234...", "ethereum", {
-  etherscanKeys: {
-    ethereum: process.env.ETHERSCAN_API_KEY,
-  },
+const response = await scanAddress("0x1234...", "ethereum", {
+  baseUrl: "http://localhost:3000",
+  apiKey: process.env.ASSAY_API_KEY,
 });
 
-// Result shape
-console.log(result.recommendation); // "ok" | "caution" | "warning" | "danger"
-console.log(result.findings);       // Finding[]
-console.log(result.confidence);     // { level: "high" | "medium" | "low", reasons: string[] }
+console.log(response.schemaVersion); // 2
+console.log(response.scan.recommendation); // "ok" | "caution" | "warning" | "danger"
+console.log(response.scan.contract.confidence); // "high" | "medium" | "low"
+console.log(response.scan.simulation?.balances.confidence); // "high" | "medium" | "low" | "none"
 
-const approvalResult = await analyzeApproval(
-  {
-    token: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    spender: "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-    amount: 1_000_000n,
-  },
-  "ethereum",
-  {
-    expectedSpender: "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-  },
-);
+const txResponse = await scanCalldata({
+  to: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  from: "0x1111111111111111111111111111111111111111",
+  data: "0x095ea7b3...",
+  chain: "ethereum",
+});
 
-console.log(approvalResult.recommendation); // "ok" | "caution" | "warning" | "danger"
-console.log(approvalResult.findings);       // Finding[]
-console.log(approvalResult.spenderAnalysis); // AnalysisResult
+console.log(txResponse.scan.simulation?.approvals.changes);
 ```
+
+`POST /v1/scan` returns schema version `2` payloads.
 
 ## Supported Chains
 
