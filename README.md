@@ -282,13 +282,14 @@ console.log(txResponse.scan.simulation?.approvals.changes);
 
 ## Supported Chains
 
-| Chain | Explorer Key Env Var |
-|-------|---------------------|
-| Ethereum | `ETHERSCAN_API_KEY` |
-| Base | `ETHERSCAN_API_KEY` |
-| Arbitrum | `ETHERSCAN_API_KEY` |
-| Optimism | `ETHERSCAN_API_KEY` |
-| Polygon | `ETHERSCAN_API_KEY` |
+- `ethereum`
+- `base`
+- `arbitrum`
+- `optimism`
+- `polygon`
+
+Explorer enrichment for all of the above uses the same key:
+- `ETHERSCAN_API_KEY` (Etherscan V2)
 
 ## Finding Codes
 
