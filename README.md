@@ -10,7 +10,7 @@ Pre-transaction security analysis for EVM contracts. Know what you're signing be
 - **Protocol matching** — DeFiLlama integration for known protocols
 - **Approval analysis** — Detect risky approval patterns before signing
 - **Phishing detection** — Etherscan labels for known phishing/scam addresses
-- **Schema v2 output** — Section-level confidence in JSON (`contract`, `simulation.balances`, `simulation.approvals`)
+- **Structured JSON output** — Contract summary, simulation details, and findings for automation
 
 ## Install
 
@@ -215,7 +215,6 @@ const response = await scanAddress("0x1234...", "ethereum", {
   apiKey: process.env.ASSAY_API_KEY,
 });
 
-console.log(response.schemaVersion); // 2
 console.log(response.scan.recommendation); // "ok" | "caution" | "warning" | "danger"
 console.log(response.scan.contract.confidence); // "high" | "medium" | "low"
 console.log(response.scan.simulation?.balances.confidence); // "high" | "medium" | "low" | "none"
@@ -230,7 +229,6 @@ const txResponse = await scanCalldata({
 console.log(txResponse.scan.simulation?.approvals.changes);
 ```
 
-`POST /v1/scan` returns schema version `2` payloads.
 
 ## Supported Chains
 
