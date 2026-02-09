@@ -1,20 +1,27 @@
 Tx scan on ethereum
 
-┌───────────────────────────────────────┐
-│  Chain: ethereum                      │
-│  Protocol: Uniswap (uniswap)          │
-│  Action: Swap ETH → USDC              │
-│  Contract: Universal Router           │
-├───────────────────────────────────────┤
-│  🧾 CHECKS                            │
-│  ✓ Source verified                    │
-│  ✓ Known protocol: Uniswap            │
-├───────────────────────────────────────┤
-│  💰 BALANCE CHANGES (high confidence) │
-│  - No balance changes detected        │
-├───────────────────────────────────────┤
-│  🔐 APPROVALS (high confidence)       │
-│  - None detected                      │
-├───────────────────────────────────────┤
-│  📊 RECOMMENDATION: OK                │
-└───────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Chain: ethereum                                                           │
+│  Protocol: Uniswap (uniswap)                                               │
+│  Action: Swap ETH → USDC                                                   │
+│  Contract: Universal Router                                                │
+├────────────────────────────────────────────────────────────────────────────┤
+│  🎯 RECOMMENDATION: ✅ OK                                                   │
+│  Why: No high-risk findings; simulation and intent checks look consistent. │
+├────────────────────────────────────────────────────────────────────────────┤
+│  🧾 CHECKS                                                                 │
+│  Context: verified · age: unknown · txs: unknown                           │
+│  ✓ Source verified                                                         │
+│  ✓ Known protocol: Uniswap                                                 │
+├────────────────────────────────────────────────────────────────────────────┤
+│  💰 BALANCE CHANGES (high confidence)                                      │
+│  - No balance changes detected                                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│  🔐 APPROVALS (high confidence)                                            │
+│  - None detected                                                           │
+├────────────────────────────────────────────────────────────────────────────┤
+│  📊 RECOMMENDATION: OK                                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│  👉 NEXT ACTION                                                            │
+│  Action: SAFE to continue.                                                 │
+└────────────────────────────────────────────────────────────────────────────┘

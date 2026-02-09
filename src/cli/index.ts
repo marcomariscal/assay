@@ -46,6 +46,7 @@ const OPTION_SPECS: Record<string, CommandOptionSpecs> = {
 		"--fail-on": { takesValue: true },
 		"--output": { takesValue: true },
 		"--quiet": { takesValue: false },
+		"--verbose": { takesValue: false },
 		"--no-sim": { takesValue: false },
 	},
 	safe: {
@@ -117,7 +118,7 @@ Disclaimer:
   Use at your own risk.
 
 Usage:
-  assay scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>] [--offline|--rpc-only]
+  assay scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>] [--verbose] [--offline|--rpc-only]
   assay safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline|--rpc-only] [--format json] [--output <path|->]
   assay approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>] [--offline|--rpc-only]
   assay proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--offline|--rpc-only] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
@@ -136,6 +137,7 @@ Options:
   --fail-on      Exit non-zero on recommendation >= threshold (default: warning)
   --output       Output file path or - for stdout (default: -)
   --quiet        Suppress non-essential logs
+  --verbose      Show full findings list in text output (no cap)
   --offline,
   --rpc-only     Strict mode: allow only explicitly configured upstream JSON-RPC URL(s).
                  Blocks ALL other outbound HTTP(s) calls (Etherscan, Sourcify, Safe Tx Service, etc)
@@ -226,6 +228,7 @@ async function runScan(args: string[]) {
 	const format = parseFormat(getFlagValue(args, ["--format"]));
 	const output = getFlagValue(args, ["--output"]) ?? "-";
 	const quiet = args.includes("--quiet");
+	const verbose = args.includes("--verbose");
 	const noSim = args.includes("--no-sim");
 	const offline = args.includes("--offline") || args.includes("--rpc-only");
 	const failOn = parseFailOn(getFlagValue(args, ["--fail-on"]));
@@ -328,6 +331,7 @@ async function runScan(args: string[]) {
 					: renderResultBox(analysis, {
 							hasCalldata: Boolean(parsed.data.calldata),
 							sender: parsed.data.calldata?.from,
+							verbose,
 						});
 
 		await writeOutput(output, outputPayload, format === "text");
