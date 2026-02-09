@@ -92,10 +92,20 @@ assay scan --calldata 0x... --to 0x... --from 0x... --value 0 --format json
 
 `assay proxy` runs a local JSON-RPC proxy for wallets. It intercepts send-transaction calls, runs `assay scan`, and blocks or prompts based on risk.
 
+Examples (each command is independent):
+
 ```bash
+# canonical pattern
+assay proxy --upstream <RPC_URL> [--chain ethereum] [--wallet] [--record-dir <dir>]
+
+# minimal explicit upstream
 assay proxy --upstream https://... --chain ethereum
-assay proxy --wallet
-assay proxy --record-dir ./assay-recordings
+
+# wallet-fast mode
+assay proxy --upstream https://... --wallet
+
+# capture recordings for later review
+assay proxy --upstream https://... --record-dir ./assay-recordings
 ```
 
 Notes:
