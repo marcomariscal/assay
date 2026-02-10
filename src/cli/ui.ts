@@ -1416,6 +1416,23 @@ function formatCallSummaryLines(
 	return [headerLine, `   ${style.color(`${style.icon} ${style.label}`)}${reason}`];
 }
 
+/** Single-line per-call row: target · action  badge */
+function formatCallOneLiner(index: number, call: SafeCallResult, hasCalldata: boolean): string {
+	const { analysis } = call;
+	const target = analysis?.contract?.name
+		? cleanLabel(analysis.contract.name)
+		: shortenAddress(call.to);
+	const intent = analysis?.intent && hasCalldata ? ` · ${cleanLabel(analysis.intent)}` : "";
+
+	if (!analysis) {
+		const reason = call.error ? COLORS.dim(` (${call.error})`) : "";
+		return ` Call ${index + 1} → ${target}${intent}${reason}`;
+	}
+
+	const style = recommendationStyle(analysis.recommendation);
+	return ` Call ${index + 1} → ${target}${intent}  ${style.color(style.icon)}`;
+}
+
 function buildSafeOverallWhy(calls: SafeCallResult[]): string {
 	const analyzed = calls.filter((c) => c.analysis);
 	if (analyzed.length === 0) return "No analysis available.";
@@ -1615,23 +1632,28 @@ export function renderSafeSummaryBox(options: {
 
 	const sections: string[][] = [];
 
-	if (analyzed.length === 0) {
-		// No analysis (offline) — just explain why
-		if (verbose) {
-			const callLines: string[] = [];
-			for (let i = 0; i < calls.length; i++) {
-				const lines = formatCallSummaryLines(i, calls[i], true);
-				if (i > 0) callLines.push("");
-				callLines.push(...lines);
-			}
-			sections.push(callLines);
+	// Per-call rows — always shown (one-liners default, multi-line verbose)
+	if (verbose) {
+		const callLines: string[] = [];
+		for (let i = 0; i < calls.length; i++) {
+			const lines = formatCallSummaryLines(i, calls[i], true);
+			if (i > 0) callLines.push("");
+			callLines.push(...lines);
 		}
+		sections.push(callLines);
+	} else {
+		const callLines = calls.map((c, i) => formatCallOneLiner(i, c, true));
+		sections.push(callLines);
+	}
+
+	if (analyzed.length === 0) {
+		// No analysis (offline) — explain why after call list
 		sections.push([
 			COLORS.dim(" ℹ️  Risk analysis requires network access."),
 			COLORS.dim("    Run without --offline for full scan."),
 		]);
 	} else if (compact) {
-		// Clean: balance impact (if any) + verdict
+		// Clean: aggregate balance impact (if any) + verdict
 		if (safeCallsHaveBalanceChanges(calls)) {
 			sections.push(buildAggregateSafeBalanceSection(calls, chain, "You"));
 		}
@@ -1641,8 +1663,7 @@ export function renderSafeSummaryBox(options: {
 		}
 		sections.push([COLORS.ok(" ✅ SAFE to continue.")]);
 	} else {
-		// Degraded: recommendation + balance impact + approvals + verdict
-		// No per-call breakdown by default (use --verbose)
+		// Degraded: recommendation + aggregate impact + verdict
 		const style = recommendationStyle(overall ?? "caution");
 		sections.push([
 			` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`,
@@ -1654,17 +1675,6 @@ export function renderSafeSummaryBox(options: {
 		const approvals = buildAggregateSafeApprovalSection(calls);
 		if (approvals.length > 0) {
 			sections.push(approvals);
-		}
-
-		if (verbose) {
-			const callLines: string[] = [];
-			callLines.push(COLORS.dim(" Per-call breakdown:"));
-			for (let i = 0; i < calls.length; i++) {
-				const lines = formatCallSummaryLines(i, calls[i], true);
-				if (i > 0) callLines.push("");
-				callLines.push(...lines);
-			}
-			sections.push(callLines);
 		}
 
 		const verdictStyle = recommendationStyle(overall ?? "caution");
