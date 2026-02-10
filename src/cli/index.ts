@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { analyzeApproval } from "../approval";
+import { runBounded } from "../concurrency";
 import { loadConfig, saveRpcUrl } from "../config";
 import { MAX_UINT256 } from "../constants";
 import { createJsonRpcProxyServer } from "../jsonrpc/proxy";
@@ -19,9 +20,12 @@ import {
 import {
 	createProgressRenderer,
 	renderApprovalBox,
+	renderCallProgressLine,
 	renderError,
 	renderHeading,
 	renderResultBox,
+	renderSafeSummaryBox,
+	type SafeCallResult,
 } from "./ui";
 
 const VALID_CHAINS: Chain[] = ["ethereum", "base", "arbitrum", "optimism", "polygon"];
@@ -62,6 +66,9 @@ const OPTION_SPECS: Record<string, CommandOptionSpecs> = {
 		"--output": { takesValue: true },
 		"--offline": { takesValue: false },
 		"--rpc-only": { takesValue: false },
+		"--verbose": { takesValue: false },
+		"--quiet": { takesValue: false },
+		"--no-sim": { takesValue: false },
 	},
 	approval: {
 		"--token": { takesValue: true },
@@ -124,7 +131,7 @@ Disclaimer:
 
 Usage:
   assay scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>] [--verbose] [--offline|--rpc-only]
-  assay safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline|--rpc-only] [--format json] [--output <path|->]
+  assay safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline|--rpc-only] [--format json|text] [--verbose] [--quiet] [--no-sim] [--output <path|->]
   assay approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>] [--offline|--rpc-only]
   assay proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--offline|--rpc-only] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
   assay mcp
@@ -353,17 +360,17 @@ async function runScan(args: string[]) {
 
 async function runSafe(args: string[]) {
 	const formatValue = getFlagValue(args, ["--format"]);
-	const format = formatValue ? parseFormat(formatValue) : "json";
+	const format = formatValue ? parseFormat(formatValue) : "text";
 	if (format === "sarif") {
-		console.error(renderError("Error: Safe ingest does not support SARIF output"));
+		console.error(renderError("Error: Safe does not support SARIF output"));
 		process.exit(1);
 	}
 
 	const output = getFlagValue(args, ["--output"]) ?? "-";
 	const offline = args.includes("--offline") || args.includes("--rpc-only");
-	if (offline) {
-		installOfflineHttpGuard({ allowedRpcUrls: [], allowLocalhost: false });
-	}
+	const verbose = args.includes("--verbose");
+	const quiet = args.includes("--quiet");
+	const noSim = args.includes("--no-sim");
 
 	const safeTxJsonRaw = getFlagValue(args, ["--safe-tx-json"]) ?? getFlagValue(args, ["--tx-json"]);
 	const safeTxJsonPath = safeTxJsonRaw?.startsWith("@") ? safeTxJsonRaw.slice(1) : safeTxJsonRaw;
@@ -390,6 +397,9 @@ async function runSafe(args: string[]) {
 	}
 
 	try {
+		if (offline) {
+			installOfflineHttpGuard({ allowedRpcUrls: [], allowLocalhost: false });
+		}
 		const tx = await loadSafeMultisigTransaction({
 			chain,
 			safeTxHash,
@@ -398,15 +408,108 @@ async function runSafe(args: string[]) {
 		});
 		const plan = buildSafeIngestPlan({ tx, chain });
 
-		const outputPayload =
-			format === "json"
-				? JSON.stringify({ chain, safeTxHash, tx, plan }, null, 2)
-				: `${renderHeading(`Safe ingest on ${chain}`)}\n\nSafeTxHash: ${safeTxHash}\nKind: ${plan.kind}\nSafe: ${plan.safe}\nCalls: ${plan.callsToAnalyze.length}\n`;
+		// JSON: raw structured output (unchanged)
+		if (format === "json") {
+			const outputPayload = JSON.stringify({ chain, safeTxHash, tx, plan }, null, 2);
+			await writeOutput(output, outputPayload, false);
+			process.exit(0);
+		}
+
+		// Text: user-facing decision summary
+		if (!quiet && output === "-") {
+			process.stdout.write(`${renderHeading(`Safe scan on ${chain}`)}\n\n`);
+		}
+
+		// Analyze each sub-call (online only).
+		// Multiple calls run in parallel with bounded concurrency to avoid
+		// blasting RPC providers while still being significantly faster than
+		// sequential execution.  Results are stored by index so the final
+		// report is deterministic regardless of completion order.
+		const SAFE_CONCURRENCY = 3;
+		const callResults: SafeCallResult[] = new Array(plan.callsToAnalyze.length);
+
+		if (!offline) {
+			const config = await loadConfig();
+			if (noSim) {
+				config.simulation = { ...config.simulation, enabled: false };
+			}
+			const showProgress = !quiet && output === "-";
+			const totalCalls = plan.callsToAnalyze.length;
+
+			// Multi-call: print a batch header. Single-call: per-provider spinner instead.
+			if (showProgress && totalCalls > 1) {
+				process.stdout.write(`${renderHeading(`Analyzing ${totalCalls} calls...`)}\n\n`);
+			}
+
+			const tasks = plan.callsToAnalyze.map((call, index) => async () => {
+				const scanInput: ScanInput = {
+					calldata: {
+						to: call.to,
+						data: call.data,
+						from: call.from,
+						value: call.value,
+						chain: call.chainId,
+					},
+				};
+
+				// Single-call keeps the familiar per-provider spinner;
+				// multi-call suppresses it (too noisy with concurrent workers).
+				const callProgress =
+					showProgress && totalCalls === 1
+						? createProgressRenderer(Boolean(process.stdout.isTTY))
+						: undefined;
+
+				if (showProgress && totalCalls === 1) {
+					process.stdout.write(`\n${renderHeading("Analyzing call 1/1...")}\n`);
+				}
+
+				try {
+					const { analysis } = await scanWithAnalysis(scanInput, {
+						chain,
+						config,
+						offline,
+						progress: callProgress,
+					});
+					callResults[index] = { to: call.to, analysis };
+				} catch (err) {
+					const message = err instanceof Error ? err.message : "unknown error";
+					callResults[index] = { to: call.to, error: message };
+				}
+
+				// Progressive disclosure: per-call completion line
+				if (showProgress && totalCalls > 1) {
+					process.stdout.write(
+						`${renderCallProgressLine(index, callResults[index], totalCalls)}\n`,
+					);
+				}
+			});
+
+			await runBounded(tasks, Math.min(SAFE_CONCURRENCY, totalCalls));
+		} else {
+			// Offline: parse-only (no analysis)
+			for (let i = 0; i < plan.callsToAnalyze.length; i++) {
+				callResults[i] = { to: plan.callsToAnalyze[i].to };
+			}
+		}
+
+		if (!quiet && output === "-") {
+			process.stdout.write("\n");
+		}
+
+		const outputPayload = renderSafeSummaryBox({
+			chain,
+			safe: plan.safe,
+			kind: plan.kind,
+			calls: callResults,
+			safeTxHash,
+			verbose,
+			maxWidth: terminalWidth(),
+		});
 
 		await writeOutput(output, outputPayload, true);
 		process.exit(0);
 	} catch (error) {
-		console.error(renderError("Safe ingest failed:"));
+		console.error(renderError("Safe scan failed:"));
 		console.error(error);
 		process.exit(1);
 	}

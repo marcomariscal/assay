@@ -239,46 +239,65 @@ describe("north-star pre-sign UX (contract)", () => {
 			// 1) Lock the output (fixtures are golden recordings)
 			expect(normalizedActual).toBe(normalizedExpected);
 
-			// 2) Required section headings exist and are ordered
-			const requiredHeadings = [
-				"🎯 RECOMMENDATION",
-				"🧾 CHECKS",
-				"💰 BALANCE CHANGES",
-				"🔐 APPROVALS",
-				"📊 RECOMMENDATION",
-				"👉 NEXT ACTION",
-			];
-			let lastIndex = -1;
-			for (const heading of requiredHeadings) {
-				expect(normalizedActual).toContain(heading);
-				const index = normalizedActual.indexOf(heading);
-				expect(index).toBeGreaterThan(lastIndex);
-				lastIndex = index;
-			}
-
-			// 2b) CHECKS includes compact metadata context by default
-			expect(normalizedActual).toContain("Context:");
-			expect(normalizedActual).toContain("age:");
-			expect(normalizedActual).toContain("txs:");
-
-			// 3) Optional policy section (only when configured)
-			const checksIndex = normalizedActual.indexOf("🧾 CHECKS");
-			const balanceIndex = normalizedActual.indexOf("💰 BALANCE CHANGES");
-			const policyIndex = normalizedActual.indexOf("🛡️ POLICY / ALLOWLIST");
-			if (context.policy) {
-				expect(policyIndex).toBeGreaterThan(checksIndex);
-				expect(policyIndex).toBeLessThan(balanceIndex);
-			} else {
-				expect(policyIndex).toBe(-1);
-			}
-
-			// 4) INCONCLUSIVE semantics (simulation uncertain => explicit line)
+			// 2) Determine if this is a clean assessment (compact) or degraded (full detail)
+			const hasActionableFindings = analysis.findings.some(
+				(f: { code: string; level: string }) =>
+					f.level !== "safe" &&
+					f.code !== "CALLDATA_DECODED" &&
+					f.code !== "CALLDATA_UNKNOWN_SELECTOR" &&
+					f.code !== "CALLDATA_SIGNATURES" &&
+					f.code !== "CALLDATA_EMPTY" &&
+					f.code !== "VERIFIED" &&
+					f.code !== "KNOWN_PROTOCOL",
+			);
 			const simulationUncertain =
 				Boolean(context.hasCalldata) &&
 				(!analysis.simulation ||
 					!analysis.simulation.success ||
 					analysis.simulation.balances.confidence !== "high" ||
 					analysis.simulation.approvals.confidence !== "high");
+			const isClean =
+				analysis.recommendation === "ok" && !simulationUncertain && !hasActionableFindings;
+
+			if (isClean) {
+				// Compact: no RECOMMENDATION, no CHECKS — just verdict
+				expect(normalizedActual).not.toContain("🎯 RECOMMENDATION");
+				expect(normalizedActual).not.toContain("🧾 CHECKS");
+				expect(normalizedActual).toContain("✅");
+			} else {
+				// Degraded: full headings in order
+				const requiredHeadings = [
+					"🎯 RECOMMENDATION",
+					"🧾 CHECKS",
+					...(context.hasCalldata ? ["💰 BALANCE CHANGES", "🔐 APPROVALS"] : []),
+					"👉 VERDICT",
+				];
+				let lastIndex = -1;
+				for (const heading of requiredHeadings) {
+					expect(normalizedActual).toContain(heading);
+					const index = normalizedActual.indexOf(heading);
+					expect(index).toBeGreaterThan(lastIndex);
+					lastIndex = index;
+				}
+
+				// CHECKS includes compact metadata context
+				expect(normalizedActual).toContain("Context:");
+				expect(normalizedActual).toContain("age:");
+				expect(normalizedActual).toContain("txs:");
+			}
+
+			// 3) Optional policy section (only when configured AND degraded)
+			if (!isClean && context.policy) {
+				const checksIndex = normalizedActual.indexOf("🧾 CHECKS");
+				const balanceIndex = normalizedActual.indexOf("💰 BALANCE CHANGES");
+				const policyIndex = normalizedActual.indexOf("🛡️ POLICY / ALLOWLIST");
+				expect(policyIndex).toBeGreaterThan(checksIndex);
+				if (balanceIndex >= 0) {
+					expect(policyIndex).toBeLessThan(balanceIndex);
+				}
+			}
+
+			// 4) INCONCLUSIVE semantics (simulation uncertain => explicit line)
 			if (simulationUncertain) {
 				expect(normalizedActual).toContain("INCONCLUSIVE");
 			} else {
@@ -291,7 +310,6 @@ describe("north-star pre-sign UX (contract)", () => {
 					expect(normalizedActual).toContain("Policy decision: BLOCK (INCONCLUSIVE simulation)");
 				}
 				if (!simulationUncertain && (context.policy.nonAllowlisted?.length ?? 0) > 0) {
-					// Wallet-mode default is to block on non-allowlisted endpoints.
 					expect(normalizedActual).toContain("Non-allowlisted");
 					expect(normalizedActual).toContain("Policy decision: BLOCK");
 				}
