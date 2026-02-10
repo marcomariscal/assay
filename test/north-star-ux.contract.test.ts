@@ -307,7 +307,7 @@ describe("north-star pre-sign UX (contract)", () => {
 			// 5) Policy decision semantics
 			if (context.policy) {
 				if (simulationUncertain) {
-					expect(normalizedActual).toContain("Policy decision: BLOCK (INCONCLUSIVE simulation)");
+					expect(normalizedActual).toContain("Policy decision: BLOCK (simulation incomplete)");
 				}
 				if (!simulationUncertain && (context.policy.nonAllowlisted?.length ?? 0) > 0) {
 					expect(normalizedActual).toContain("Non-allowlisted");

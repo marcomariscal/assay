@@ -448,6 +448,38 @@ function resolveActionLabel(result: AnalysisResult): string {
 	return base;
 }
 
+/**
+ * Turn raw Solidity-style signatures (e.g. "execute(bytes,bytes[],uint256)")
+ * into human-friendly labels (e.g. "Execute"). Used for Safe multisend per-call
+ * rows where intent templates didn't match.
+ */
+function humanizeActionLabel(label: string): string {
+	// Already a human sentence (contains a space) — keep as-is
+	if (label.includes(" ")) return label;
+	// Raw selector like "0xa9059cbb" — no useful info
+	if (/^0x[0-9a-fA-F]+$/.test(label)) return "Contract call";
+	// Solidity signature: "functionName(args...)" — extract and title-case the name
+	const match = /^([a-zA-Z_][a-zA-Z0-9_]*)\(/.exec(label);
+	if (match?.[1]) {
+		const name = match[1];
+		// Title-case: "swapExactTokens" → "Swap exact tokens"
+		const spaced = name
+			.replace(/([a-z])([A-Z])/g, "$1 $2")
+			.replace(/_/g, " ")
+			.toLowerCase();
+		return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+	}
+	// camelCase without parens: "swapExactTokens" → "Swap exact tokens"
+	if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(label)) {
+		const spaced = label
+			.replace(/([a-z])([A-Z])/g, "$1 $2")
+			.replace(/_/g, " ")
+			.toLowerCase();
+		return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+	}
+	return label;
+}
+
 function improveApprovalIntentFromSimulation(result: AnalysisResult, base: string): string | null {
 	if (!result.simulation?.success) return null;
 	if (!base.toLowerCase().startsWith("approve")) return null;
@@ -504,21 +536,21 @@ function findDecodedSignature(findings: Finding[]): string | null {
 function formatInconclusiveReason(result: AnalysisResult): string {
 	const simulation = result.simulation;
 	if (!simulation) {
-		return "simulation unavailable";
+		return "simulation data unavailable";
 	}
 	if (!simulation.success) {
-		return `simulation failed${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`;
+		return `simulation didn't complete${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`;
 	}
 
 	const reasons: string[] = [];
 	if (simulation.balances.confidence !== "high") {
-		reasons.push(`balances ${simulation.balances.confidence} confidence`);
+		reasons.push("balance data incomplete");
 	}
 	if (simulation.approvals.confidence !== "high") {
-		reasons.push(`approvals ${simulation.approvals.confidence} confidence`);
+		reasons.push("approval data incomplete");
 	}
 	if (reasons.length === 0) {
-		return "simulation confidence below high";
+		return "simulation data incomplete";
 	}
 	return reasons.join("; ");
 }
@@ -547,8 +579,8 @@ function orderBalanceChanges(changes: string[]): string[] {
 
 function sectionCoverageSuffix(level: SimulationConfidenceLevel | undefined): string {
 	if (!level || level === "high") return "";
-	if (level === "none") return " (coverage: unavailable)";
-	return ` (coverage: ${level})`;
+	if (level === "none") return " (data unavailable)";
+	return " (incomplete)";
 }
 
 function simulationIsUncertain(result: AnalysisResult, hasCalldata: boolean): boolean {
@@ -574,12 +606,12 @@ function renderBalanceSection(
 		return lines;
 	}
 	if (!result.simulation) {
-		lines.push(COLORS.warning(" - Simulation data unavailable; treat this as higher risk."));
+		lines.push(COLORS.warning(" - Simulation data unavailable — treat with extra caution."));
 		return lines;
 	}
 	if (!result.simulation.success) {
 		const detail = result.simulation.revertReason ? ` (${result.simulation.revertReason})` : "";
-		lines.push(COLORS.warning(` - Simulation did not complete${detail}`));
+		lines.push(COLORS.warning(` - Simulation didn't complete${detail}`));
 		const hints = extractSimulationHints(result.simulation.notes);
 		for (const hint of hints) {
 			lines.push(COLORS.warning(` - ${hint}`));
@@ -601,7 +633,7 @@ function renderBalanceSection(
 			lines.push(COLORS.dim(" - No balance changes detected"));
 		} else {
 			lines.push(
-				COLORS.warning(" - Could not verify all balance changes; treat this as higher risk."),
+				COLORS.warning(" - Balance changes couldn't be fully verified — treat with extra caution."),
 			);
 		}
 		return lines;
@@ -688,18 +720,14 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 	const simulationFailed = !result.simulation || !result.simulation.success;
 	if (simulationFailed) {
 		if (approvals.length === 0) {
-			lines.push(
-				COLORS.warning(" - Could not verify approval changes; treat this as higher risk."),
-			);
+			lines.push(COLORS.warning(" - Couldn't verify approvals — treat with extra caution."));
 			return lines;
 		}
-		lines.push(
-			COLORS.warning(" - Partial approvals observed; treat unknown approvals as higher risk:"),
-		);
+		lines.push(COLORS.warning(" - Some approvals detected, but others may be missing:"));
 	}
 	if (approvals.length === 0) {
 		if (result.simulation && result.simulation.approvals.confidence !== "high") {
-			lines.push(COLORS.warning(" - Approval coverage is incomplete; treat this as higher risk."));
+			lines.push(COLORS.warning(" - Couldn't verify all approvals — treat with extra caution."));
 			return lines;
 		}
 		lines.push(COLORS.dim(" - None detected"));
@@ -809,7 +837,7 @@ function resolvePolicyDecision(
 	policy: PolicySummary,
 ): EffectivePolicyDecision {
 	if (simulationIsUncertain(result, hasCalldata)) {
-		return { decision: "BLOCK", reason: "INCONCLUSIVE simulation" };
+		return { decision: "BLOCK", reason: "simulation incomplete" };
 	}
 	if (policy.decision) {
 		return { decision: policy.decision };
@@ -835,7 +863,7 @@ function buildRecommendationWhy(
 ): string {
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	if (simulationUncertain) {
-		return "Simulation is inconclusive, so balance and approval effects may be incomplete.";
+		return "Simulation didn't complete, so balance and approval effects couldn't be fully verified.";
 	}
 
 	if (policy) {
@@ -964,7 +992,7 @@ function buildNextActionLine(
 	policy?: PolicySummary,
 ): string {
 	if (simulationIsUncertain(result, hasCalldata)) {
-		return "BLOCK — simulation is inconclusive; verify spender, recipient, and amounts first.";
+		return "BLOCK — couldn't fully verify this transaction; check spender, recipient, and amounts first.";
 	}
 
 	if (policy) {
@@ -1432,6 +1460,16 @@ function worstRecommendation(recommendations: Recommendation[]): Recommendation 
 	return order[worst] ?? "ok";
 }
 
+function resolveCallActionLabel(
+	analysis: AnalysisResult | undefined,
+	hasCalldata: boolean,
+): string {
+	if (!analysis || !hasCalldata) return "";
+	const label = resolveActionLabel(analysis);
+	if (label === "Unknown action") return "";
+	return humanizeActionLabel(label);
+}
+
 function formatCallSummaryLines(
 	index: number,
 	call: SafeCallResult,
@@ -1441,7 +1479,8 @@ function formatCallSummaryLines(
 	const target = analysis?.contract?.name
 		? cleanLabel(analysis.contract.name)
 		: shortenAddress(call.to);
-	const intent = analysis?.intent && hasCalldata ? ` · ${cleanLabel(analysis.intent)}` : "";
+	const action = resolveCallActionLabel(analysis, hasCalldata);
+	const intent = action ? ` · ${action}` : "";
 	const headerLine = ` Call ${index + 1} → ${target}${intent}`;
 
 	if (!analysis) {
@@ -1461,7 +1500,8 @@ function formatCallOneLiner(index: number, call: SafeCallResult, hasCalldata: bo
 	const target = analysis?.contract?.name
 		? cleanLabel(analysis.contract.name)
 		: shortenAddress(call.to);
-	const intent = analysis?.intent && hasCalldata ? ` · ${cleanLabel(analysis.intent)}` : "";
+	const action = resolveCallActionLabel(analysis, hasCalldata);
+	const intent = action ? ` · ${action}` : "";
 
 	if (!analysis) {
 		const reason = call.error ? COLORS.dim(` (${call.error})`) : "";
@@ -1482,7 +1522,8 @@ export function renderCallProgressLine(
 	const target = analysis?.contract?.name
 		? cleanLabel(analysis.contract.name)
 		: shortenAddress(result.to);
-	const intent = analysis?.intent ? ` · ${cleanLabel(analysis.intent)}` : "";
+	const action = resolveCallActionLabel(analysis, true);
+	const intent = action ? ` · ${action}` : "";
 	const label = `Call ${index + 1}/${totalCalls}`;
 
 	if (result.error) {
@@ -1576,10 +1617,12 @@ function buildAggregateSafeBalanceSection(
 	lines.push(` 💰 BALANCE CHANGES${sectionCoverageSuffix(worstConf)}`);
 
 	if (anyFailed) {
-		lines.push(COLORS.warning(" - Some simulations failed; balance impact may be incomplete."));
+		lines.push(
+			COLORS.warning(" - Some simulations didn't complete — balance impact may be incomplete."),
+		);
 	} else if (anyMissing) {
 		lines.push(
-			COLORS.warning(" - Some calls could not be analyzed; balance impact may be incomplete."),
+			COLORS.warning(" - Some calls couldn't be analyzed — balance impact may be incomplete."),
 		);
 	}
 
