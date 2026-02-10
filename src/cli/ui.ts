@@ -1447,6 +1447,139 @@ function buildSafeVerdictLine(overall: Recommendation): string {
 	return "SAFE to continue.";
 }
 
+// ---------------------------------------------------------------------------
+// Aggregate balance/approval across Safe sub-calls
+// ---------------------------------------------------------------------------
+
+function worstConfidenceOf(
+	calls: SafeCallResult[],
+	accessor: (sim: BalanceSimulationResult) => SimulationConfidenceLevel,
+): SimulationConfidenceLevel {
+	const order: SimulationConfidenceLevel[] = ["high", "medium", "low", "none"];
+	let worst = 0;
+	for (const call of calls) {
+		if (!call.analysis?.simulation) continue;
+		const idx = order.indexOf(accessor(call.analysis.simulation));
+		if (idx > worst) worst = idx;
+	}
+	return order[worst] ?? "high";
+}
+
+function buildAggregateSafeBalanceSection(
+	calls: SafeCallResult[],
+	chain: Chain,
+	actorLabel: "You" | "Sender",
+): string[] {
+	const allChanges: AssetChange[] = [];
+	let nativeDiff = 0n;
+	let anyFailed = false;
+	let anyMissing = false;
+
+	for (const call of calls) {
+		if (!call.analysis?.simulation) {
+			anyMissing = true;
+			continue;
+		}
+		const sim = call.analysis.simulation;
+		if (!sim.success) {
+			anyFailed = true;
+			continue;
+		}
+		if (sim.nativeDiff) nativeDiff += sim.nativeDiff;
+		allChanges.push(...sim.balances.changes);
+	}
+
+	const worstConf = worstConfidenceOf(calls, (s) => s.balances.confidence);
+	const lines: string[] = [];
+	lines.push(` 💰 BALANCE CHANGES${sectionConfidenceSuffix(worstConf)}`);
+
+	if (anyFailed) {
+		lines.push(COLORS.warning(" - Some simulations failed; balance impact may be incomplete."));
+	} else if (anyMissing) {
+		lines.push(
+			COLORS.warning(" - Some calls could not be analyzed; balance impact may be incomplete."),
+		);
+	}
+
+	const items: string[] = [];
+	if (nativeDiff !== 0n) {
+		items.push(formatSignedAmount(nativeDiff, 18, nativeSymbol(chain)));
+	}
+	const erc20Net = aggregateErc20(allChanges);
+	for (const change of erc20Net) {
+		const symbol = change.symbol ?? shortenAddress(change.address);
+		items.push(formatSignedAmount(change.amount, change.decimals, symbol));
+	}
+	for (const change of allChanges) {
+		if (change.assetType === "erc20") continue;
+		const item = formatNftChange(change);
+		if (item) items.push(item);
+	}
+
+	if (items.length === 0 && !anyFailed && !anyMissing) {
+		lines.push(COLORS.dim(" - No balance changes detected"));
+		return lines;
+	}
+
+	const ordered = orderBalanceChanges(items);
+	for (const item of ordered) {
+		const trimmed = item.trim();
+		if (trimmed.startsWith("-")) {
+			lines.push(` - ${actorLabel} sent ${trimmed.replace(/^[-]\s*/, "")}`);
+		} else if (trimmed.startsWith("+")) {
+			lines.push(` - ${actorLabel} received ${trimmed.replace(/^[+]\s*/, "")}`);
+		} else {
+			lines.push(` - ${trimmed}`);
+		}
+	}
+	return lines;
+}
+
+function buildAggregateSafeApprovalSection(calls: SafeCallResult[]): string[] {
+	const allItems: RenderedApprovalItem[] = [];
+	const seen = new Set<string>();
+
+	for (const call of calls) {
+		if (!call.analysis) continue;
+		const items = buildApprovalItems(call.analysis);
+		for (const item of items) {
+			const key = item.key.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			allItems.push(item);
+		}
+	}
+
+	if (allItems.length === 0) return [];
+
+	const worstConf = worstConfidenceOf(calls, (s) => s.approvals.confidence);
+	const lines: string[] = [];
+	lines.push(` 🔐 APPROVALS${sectionConfidenceSuffix(worstConf)}`);
+
+	for (const approval of allItems) {
+		const prefix = approval.isWarning ? "⚠️" : "✓";
+		const line = `${prefix} ${approval.text}`;
+		lines.push(approval.isWarning ? ` ${COLORS.warning(line)}` : ` ${COLORS.ok(line)}`);
+		if (approval.detail) {
+			lines.push(`   ${COLORS.warning(`(${approval.detail})`)}`);
+		}
+	}
+	return lines;
+}
+
+function safeCallsHaveBalanceChanges(calls: SafeCallResult[]): boolean {
+	for (const call of calls) {
+		if (!call.analysis?.simulation?.success) continue;
+		const sim = call.analysis.simulation;
+		if (sim.nativeDiff && sim.nativeDiff !== 0n) return true;
+		if (aggregateErc20(sim.balances.changes).length > 0) return true;
+		if (sim.balances.changes.some((c) => c.assetType !== "erc20")) return true;
+	}
+	return false;
+}
+
+// ---------------------------------------------------------------------------
+
 export function renderSafeSummaryBox(options: {
 	chain: Chain;
 	safe: string;
@@ -1458,7 +1591,7 @@ export function renderSafeSummaryBox(options: {
 }): string {
 	const { chain, safe, kind, calls, verbose, maxWidth, safeTxHash } = options;
 	const callCount = calls.length;
-	const typeLabel = kind === "single" ? "Single call" : `Multisend`;
+	const typeLabel = kind === "single" ? "Single call" : "Multisend";
 
 	const headerLines = [
 		` ${typeLabel} · ${shortenAddress(safe)}`,
@@ -1474,7 +1607,6 @@ export function renderSafeSummaryBox(options: {
 		.filter((r): r is Recommendation => r !== undefined);
 	const overall = recommendations.length > 0 ? worstRecommendation(recommendations) : undefined;
 
-	// Progressive disclosure: compact when all calls are clean, detailed when degraded.
 	const allClean =
 		analyzed.length > 0 &&
 		analyzed.length === calls.length &&
@@ -1483,35 +1615,63 @@ export function renderSafeSummaryBox(options: {
 
 	const sections: string[][] = [];
 
-	if (compact) {
-		// All calls passed — just show the verdict, no per-call breakdown
-		sections.push([COLORS.ok(" ✅ All calls passed. SAFE to continue.")]);
-	} else if (overall) {
-		// Degraded: show recommendation, per-call breakdown, and verdict
-
-		// Recommendation section
-		const style = recommendationStyle(overall);
-		const recLines = [
+	if (analyzed.length === 0) {
+		// No analysis (offline) — just explain why
+		if (verbose) {
+			const callLines: string[] = [];
+			for (let i = 0; i < calls.length; i++) {
+				const lines = formatCallSummaryLines(i, calls[i], true);
+				if (i > 0) callLines.push("");
+				callLines.push(...lines);
+			}
+			sections.push(callLines);
+		}
+		sections.push([
+			COLORS.dim(" ℹ️  Risk analysis requires network access."),
+			COLORS.dim("    Run without --offline for full scan."),
+		]);
+	} else if (compact) {
+		// Clean: balance impact (if any) + verdict
+		if (safeCallsHaveBalanceChanges(calls)) {
+			sections.push(buildAggregateSafeBalanceSection(calls, chain, "You"));
+		}
+		const approvals = buildAggregateSafeApprovalSection(calls);
+		if (approvals.length > 0) {
+			sections.push(approvals);
+		}
+		sections.push([COLORS.ok(" ✅ SAFE to continue.")]);
+	} else {
+		// Degraded: recommendation + balance impact + approvals + verdict
+		// No per-call breakdown by default (use --verbose)
+		const style = recommendationStyle(overall ?? "caution");
+		sections.push([
 			` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`,
 			` Why: ${buildSafeOverallWhy(calls)}`,
-		];
-		sections.push(recLines);
+		]);
 
-		// Per-call summaries
-		const callLines: string[] = [];
-		for (let i = 0; i < calls.length; i++) {
-			const lines = formatCallSummaryLines(i, calls[i], true);
-			if (i > 0) callLines.push(""); // blank separator between calls
-			callLines.push(...lines);
+		sections.push(buildAggregateSafeBalanceSection(calls, chain, "You"));
+
+		const approvals = buildAggregateSafeApprovalSection(calls);
+		if (approvals.length > 0) {
+			sections.push(approvals);
 		}
-		sections.push(callLines);
 
-		// Verdict
-		const verdictStyle = recommendationStyle(overall);
+		if (verbose) {
+			const callLines: string[] = [];
+			callLines.push(COLORS.dim(" Per-call breakdown:"));
+			for (let i = 0; i < calls.length; i++) {
+				const lines = formatCallSummaryLines(i, calls[i], true);
+				if (i > 0) callLines.push("");
+				callLines.push(...lines);
+			}
+			sections.push(callLines);
+		}
+
+		const verdictStyle = recommendationStyle(overall ?? "caution");
 		const verdictLines = [
 			` 👉 VERDICT: ${verdictStyle.color(`${verdictStyle.icon} ${verdictStyle.label}`)}`,
 		];
-		const actionLine = buildSafeVerdictLine(overall);
+		const actionLine = buildSafeVerdictLine(overall ?? "caution");
 		if (actionLine.includes("BLOCK")) {
 			verdictLines.push(COLORS.danger(` ${actionLine}`));
 		} else if (actionLine.includes("PROMPT")) {
@@ -1520,21 +1680,6 @@ export function renderSafeSummaryBox(options: {
 			verdictLines.push(COLORS.ok(` ${actionLine}`));
 		}
 		sections.push(verdictLines);
-	} else {
-		// No analysis — show call targets + explain why detail is missing
-		const callLines: string[] = [];
-		for (let i = 0; i < calls.length; i++) {
-			const lines = formatCallSummaryLines(i, calls[i], true);
-			if (i > 0) callLines.push(""); // blank separator between calls
-			callLines.push(...lines);
-		}
-		sections.push(callLines);
-
-		const noteLines = [
-			COLORS.dim(" ℹ️  Risk analysis requires network access."),
-			COLORS.dim("    Run without --offline for full scan."),
-		];
-		sections.push(noteLines);
 	}
 
 	return renderUnifiedBox(headerLines, sections, maxWidth);

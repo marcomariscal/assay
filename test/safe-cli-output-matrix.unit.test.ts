@@ -40,17 +40,16 @@ describe("safe CLI output matrix", () => {
 		expect(stdout).toContain("Safe scan on arbitrum");
 		expect(stdout).toContain("Multisend");
 		expect(stdout).toContain("2 calls");
-		// Per-call targets shown as short addresses (not raw hex dumps)
-		expect(stdout).toContain("Call 1");
-		expect(stdout).toContain("Call 2");
 		// Offline: explicit messaging about analysis availability
 		expect(stdout).toContain("analysis requires network");
-		// Raw plumbing NOT shown in default mode
+		// Internal call plumbing NOT shown in default mode
+		expect(stdout).not.toContain("Call 1");
+		expect(stdout).not.toContain("Call 2");
 		expect(stdout).not.toContain("Kind:");
 		expect(stdout).not.toContain("Calls:");
 	});
 
-	test("Safe multisend offline with --verbose shows safeTxHash", async () => {
+	test("Safe multisend offline with --verbose shows safeTxHash and per-call targets", async () => {
 		const result = await runCli([
 			"safe",
 			"arbitrum",
@@ -64,6 +63,9 @@ describe("safe CLI output matrix", () => {
 		expect(result.exitCode).toBe(0);
 		const stdout = stripAnsi(result.stdout);
 		expect(stdout).toContain(SAFE_TX_HASH);
+		// Verbose shows per-call breakdown
+		expect(stdout).toContain("Call 1");
+		expect(stdout).toContain("Call 2");
 	});
 
 	test("Safe multisend --format json outputs raw structured data", async () => {
