@@ -120,7 +120,18 @@ export async function analyze(
 	const resolveTimeoutMs = (providerId: AnalyzeProviderId): number => {
 		const providerPolicy = policy.providers[providerId];
 		const remaining = budget ? budget.remainingMs() : providerPolicy.timeoutMs;
-		return Math.max(0, Math.min(providerPolicy.timeoutMs, remaining));
+		let timeoutMs = Math.max(0, Math.min(providerPolicy.timeoutMs, remaining));
+
+		// One-time fetch budget: the Etherscan phishing list cold-cache download can be large.
+		// Allow a longer first-run window so we can populate the on-disk cache.
+		if (providerId === "etherscanLabels" && policy.mode === "default") {
+			const cacheState = etherscan.getLabelsCacheState(chain);
+			if (cacheState === "cold") {
+				timeoutMs = Math.max(timeoutMs, 30_000);
+			}
+		}
+
+		return timeoutMs;
 	};
 
 	const runProvider = async <T>(args: {
