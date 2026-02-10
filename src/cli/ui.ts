@@ -1219,10 +1219,7 @@ function formatSimulationApproval(
 			: `${prefix}Revoke ${spenderLabel} operator access for ALL ${tokenLabel}`;
 		return {
 			text: previous ? `${action} (was ${previous})` : action,
-			detail:
-				previous === undefined
-					? "previous operator approval unknown — state read failed"
-					: undefined,
+			detail: previous === undefined ? "previous operator approval unknown" : undefined,
 			isWarning: approved,
 			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|all|${approved}`,
 		};
@@ -1242,7 +1239,7 @@ function formatSimulationApproval(
 			: `${prefix}Approve ${tokenLabel} #${approval.tokenId.toString()} for ${spenderLabel}`;
 		return {
 			text: previousSpender ? `${action} (was ${previousSpender})` : action,
-			detail: previousSpender ? undefined : "previous approved spender unknown — state read failed",
+			detail: previousSpender ? undefined : "previous approved spender unknown",
 			isWarning: !revoking,
 			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|${approval.tokenId.toString()}`,
 		};
@@ -1260,8 +1257,7 @@ function formatSimulationApproval(
 		const action = `${prefix}Allow ${spenderLabel} to spend UNKNOWN ${tokenLabel}`;
 		return {
 			text: previousLabel ? `${action} (was ${previousLabel})` : action,
-			detail:
-				previousLabel === undefined ? "allowance amount unknown — state read failed" : undefined,
+			detail: previousLabel === undefined ? "allowance amount unknown" : undefined,
 			isWarning: true,
 			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|unknown`,
 		};
@@ -1271,7 +1267,7 @@ function formatSimulationApproval(
 		const action = `${prefix}Revoke ${spenderLabel} spending of ${tokenLabel}`;
 		return {
 			text: previousLabel ? `${action} (was ${previousLabel})` : action,
-			detail: previousLabel ? undefined : "previous allowance unknown — state read failed",
+			detail: previousLabel ? undefined : "previous allowance unknown",
 			isWarning: false,
 			key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|revoke`,
 		};
@@ -1280,7 +1276,7 @@ function formatSimulationApproval(
 	const action = `${prefix}Allow ${spenderLabel} to spend ${amountLabel} ${tokenLabel}`;
 	return {
 		text: previousLabel ? `${action} (was ${previousLabel})` : action,
-		detail: previousLabel ? undefined : "previous allowance unknown — state read failed",
+		detail: previousLabel ? undefined : "previous allowance unknown",
 		isWarning: true,
 		key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|${amountLabel}`,
 	};
