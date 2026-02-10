@@ -382,9 +382,30 @@ async function simulateWithAnvilOnce(
 			assetChanges.push(...buildErc20Changes(preBalances, postBalances));
 			assetChanges.push(...buildNftChanges(parsedLogs.transfers, from));
 
-			const approvals = mapParsedApprovalsToChanges(
-				filterApprovalsByOwner(parsedLogs.approvals, from),
-			);
+			const actorApprovals = filterApprovalsByOwner(parsedLogs.approvals, from);
+			const hasActorApprovalEvents = actorApprovals.length > 0;
+			let approvals = mapParsedApprovalsToChanges(actorApprovals);
+			if (hasActorApprovalEvents) {
+				const previousBlock = receipt.blockNumber > 0n ? receipt.blockNumber - 1n : undefined;
+				if (previousBlock === undefined) {
+					notes.push("Unable to read pre-transaction approvals (missing previous block).");
+					approvalsConfidence = minConfidence(approvalsConfidence, "medium");
+				} else {
+					try {
+						const diffResult = await buildApprovalDiffs(actorApprovals, client, {
+							beforeBlock: previousBlock,
+							afterBlock: receipt.blockNumber,
+						});
+						approvals = diffResult.approvals;
+						approvalsConfidence = minConfidence(approvalsConfidence, diffResult.confidence);
+						notes.push(...diffResult.notes);
+					} catch (error) {
+						const message = error instanceof Error ? error.message : "unknown error";
+						notes.push(`Approval diff stage failed; using event-derived approvals (${message}).`);
+						approvalsConfidence = minConfidence(approvalsConfidence, "low");
+					}
+				}
+			}
 
 			const gasCost = receipt.gasUsed * receipt.effectiveGasPrice;
 			const nativeAfter = await client.getBalance({ address: from });
