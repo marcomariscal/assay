@@ -351,6 +351,7 @@ async function runScan(args: string[]) {
 					: renderResultBox(analysis, {
 							hasCalldata: Boolean(parsed.data.calldata),
 							sender: parsed.data.calldata?.from,
+							explorerAddress: parsed.data.calldata?.to ?? address,
 							verbose,
 							maxWidth: terminalWidth(),
 						});
@@ -685,6 +686,7 @@ async function runProxy(args: string[]) {
 								{
 									hasCalldata: Boolean(input.calldata),
 									sender: input.calldata?.from,
+									explorerAddress: input.calldata?.to,
 									maxWidth: terminalWidth(),
 								},
 							)}\n`;

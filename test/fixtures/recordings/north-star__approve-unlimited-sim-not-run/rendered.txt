@@ -5,6 +5,7 @@ Transaction scan on ethereum
 │  Protocol: USDC                                                                               │
 │  Action: Approve USDC allowance                                                               │
 │  Contract: USD Coin                                                                           │
+│  Explorer: https://etherscan.io/address/0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48            │
 ├───────────────────────────────────────────────────────────────────────────────────────────────┤
 │  🎯 RECOMMENDATION: ⚡ CAUTION                                                                 │
 │  Why: Simulation didn't complete, so balance and approval effects couldn't be fully verified. │

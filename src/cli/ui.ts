@@ -1,5 +1,6 @@
 import pc from "picocolors";
 import { KNOWN_SPENDERS } from "../approvals/known-spenders";
+import { getChainConfig } from "../chains";
 import { MAX_UINT160, MAX_UINT256 } from "../constants";
 import type {
 	AnalysisResult,
@@ -39,6 +40,11 @@ const NATIVE_SYMBOLS: Record<Chain, string> = {
 	optimism: "ETH",
 	polygon: "MATIC",
 };
+
+function explorerAddressUrl(chain: Chain, address: string): string {
+	const { etherscanUrl } = getChainConfig(chain);
+	return `${etherscanUrl}/address/${address}`;
+}
 
 function stripAnsi(input: string): string {
 	// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequence
@@ -1051,6 +1057,13 @@ export function renderResultBox(
 	context?: {
 		hasCalldata?: boolean;
 		sender?: string;
+		/**
+		 * Address to use for the top-level explorer link.
+		 *
+		 * - Address scan: scanned address
+		 * - Tx intent scan: tx.to
+		 */
+		explorerAddress?: string;
 		policy?: PolicySummary;
 		verbose?: boolean;
 		/** When set, long lines word-wrap to fit within this terminal width. */
@@ -1067,12 +1080,15 @@ export function renderResultBox(
 			: "";
 	const action = hasCalldata ? resolveActionLabel(result) : "N/A";
 	const contractLabel = formatContractLabel(result.contract);
+	const explorerAddress = context?.explorerAddress ?? result.contract.address;
+	const explorerLine = ` Explorer: ${explorerAddressUrl(result.contract.chain, explorerAddress)}`;
 
 	const headerLines = [
 		` Chain: ${result.contract.chain}`,
 		` Protocol: ${protocol}${protocolSuffix}`,
 		...(hasCalldata ? [` Action: ${action}`] : []),
 		` Contract: ${contractLabel}`,
+		explorerLine,
 	];
 
 	// Progressive disclosure: concise when assessment is strong, detailed when degraded.
@@ -1718,9 +1734,11 @@ export function renderSafeSummaryBox(options: {
 	const callCount = calls.length;
 	const typeLabel = kind === "single" ? "Single call" : "Multisend";
 
+	const explorerLine = ` Explorer: ${explorerAddressUrl(chain, safe)}`;
 	const headerLines = [
 		` ${typeLabel} · ${shortenAddress(safe)}`,
 		` Chain: ${chain} · ${callCount} call${callCount !== 1 ? "s" : ""}`,
+		explorerLine,
 	];
 	if (verbose && safeTxHash) {
 		headerLines.push(COLORS.dim(` SafeTxHash: ${safeTxHash}`));

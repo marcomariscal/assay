@@ -655,6 +655,7 @@ async function defaultScanFn(
 			{
 				hasCalldata: Boolean(input.calldata),
 				sender: input.calldata?.from,
+				explorerAddress: input.calldata?.to ?? input.address,
 			},
 		)}\n`;
 		options.timings.add("proxy.render", nowMs() - renderStarted);
