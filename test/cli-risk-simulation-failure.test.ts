@@ -74,8 +74,10 @@ describe("cli recommendation label with simulation failures", () => {
 		expect(verdictLine).not.toContain("OK");
 		expect(verdictLine).toContain("CAUTION");
 		expect(output).toContain("BLOCK");
-		expect(output).toContain("Could not verify all balance changes; treat this as higher risk.");
-		expect(output).toContain("Approval coverage is incomplete; treat this as higher risk.");
+		expect(output).toContain(
+			"Balance changes couldn't be fully verified — treat with extra caution.",
+		);
+		expect(output).toContain("Couldn't verify all approvals — treat with extra caution.");
 	});
 
 	test("checks findings are severity-ordered and capped by default", () => {

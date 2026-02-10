@@ -235,9 +235,9 @@ const WEIRD_INCONCLUSIVE_EDGE: OutputMatrixScenario = {
 		sender: "0x3333333333333333333333333333333333333333",
 	},
 	keyAssertions: [
-		"Simulation did not complete (execution reverted: custom error 0x4e487b71)",
+		"Simulation didn't complete (execution reverted: custom error 0x4e487b71)",
 		"wallet fast-mode enabled; trace fallback only.",
-		"⚠️ INCONCLUSIVE: simulation failed (execution reverted: custom error 0x4e487b71)",
+		"⚠️ INCONCLUSIVE: simulation didn't complete (execution reverted: custom error 0x4e487b71)",
 	],
 };
 
