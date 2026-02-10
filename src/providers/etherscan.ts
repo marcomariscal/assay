@@ -1,5 +1,10 @@
+import { existsSync, statSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
 import { getChainConfig } from "../chains";
-import { fetchWithTimeout } from "../http";
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchWithTimeout } from "../http";
 import type { Chain, EtherscanData } from "../types";
 import type { ProviderRequestOptions } from "./request-options";
 
@@ -81,6 +86,8 @@ export interface AddressLabels {
 	labels: string[];
 }
 
+const nametagEndpointSupportedByChainId = new Map<number, boolean>();
+
 export async function getAddressLabels(
 	address: string,
 	chain: Chain,
@@ -91,8 +98,19 @@ export async function getAddressLabels(
 	const baseUrl = chainConfig.etherscanApiUrl;
 	const rootUrl = baseUrl.endsWith("/api") ? baseUrl.slice(0, -4) : baseUrl;
 	const chainId = chainConfig.chainId;
-	const apiKeyParam = apiKey ? `&apikey=${apiKey}` : "";
-	const url = `${rootUrl}/api/v2/nametag?address=${address}&chainid=${chainId}${apiKeyParam}`;
+
+	// The nametag endpoint is paywalled on many chains/accounts.
+	// If we don't have an API key, skip straight to the phish/hack export list.
+	if (!apiKey || apiKey.trim().length === 0) {
+		return await getPhishHackLabel(address, chainId, options);
+	}
+
+	const supported = nametagEndpointSupportedByChainId.get(chainId);
+	if (supported === false) {
+		return await getPhishHackLabel(address, chainId, options);
+	}
+
+	const url = `${rootUrl}/api/v2/nametag?address=${address}&chainid=${chainId}&apikey=${apiKey}`;
 
 	try {
 		const response = await fetchWithTimeout(url, { signal: options?.signal }, options?.timeoutMs);
@@ -101,6 +119,13 @@ export async function getAddressLabels(
 		}
 
 		const data = await response.json();
+		if (isApiExclusiveError(data)) {
+			nametagEndpointSupportedByChainId.set(chainId, false);
+			return await getPhishHackLabel(address, chainId, options);
+		}
+
+		nametagEndpointSupportedByChainId.set(chainId, true);
+
 		const parsed = parseAddressLabels(data);
 		if (parsed) return parsed;
 		return await getPhishHackLabel(address, chainId, options);
@@ -134,6 +159,15 @@ function parseAddressLabels(value: unknown): AddressLabels | null {
 	return null;
 }
 
+function isApiExclusiveError(value: unknown): boolean {
+	if (!isRecord(value)) return false;
+
+	const message = isNonEmptyString(value.message) ? value.message : "";
+	const result = isNonEmptyString(value.result) ? value.result : "";
+	const combined = `${message} ${result}`.toLowerCase();
+	return combined.includes("exclusive") && combined.includes("endpoint");
+}
+
 function parseNametagRecord(record: Record<string, unknown>): AddressLabels | null {
 	const nametag = isNonEmptyString(record.nametag) ? record.nametag : undefined;
 	const labels = normalizeLabels(record.labels);
@@ -161,8 +195,50 @@ function isNonEmptyString(value: unknown): value is string {
 	return typeof value === "string" && value.trim().length > 0;
 }
 
+export type LabelsCacheState = "cold" | "warm" | "stale";
+
 const PHISH_HACK_LABEL = "Phish / Hack";
+const PHISH_HACK_CACHE_VERSION = 1;
+const PHISH_HACK_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 const phishHackCache = new Map<number, Promise<Set<string> | null> | Set<string>>();
+
+export function getLabelsCacheState(chain: Chain, nowMs: number = Date.now()): LabelsCacheState {
+	const chainId = getChainConfig(chain).chainId;
+	return getPhishHackDiskCacheState(chainId, nowMs);
+}
+
+/** Reset in-memory caches — only intended for tests. */
+export function _resetPhishHackCache(): void {
+	phishHackCache.clear();
+	nametagEndpointSupportedByChainId.clear();
+}
+
+function resolveAssayCacheDir(): string {
+	const explicit = process.env.ASSAY_CACHE_DIR;
+	if (explicit && explicit.trim().length > 0) return explicit;
+	return path.join(os.homedir(), ".config", "assay", "cache");
+}
+
+function resolvePhishHackCachePath(chainId: number): string {
+	return path.join(resolveAssayCacheDir(), `etherscan-phish-hack-${chainId}.json`);
+}
+
+function getPhishHackDiskCacheState(
+	chainId: number,
+	nowMs: number,
+	ttlMs: number = PHISH_HACK_CACHE_TTL_MS,
+): LabelsCacheState {
+	const cachePath = resolvePhishHackCachePath(chainId);
+	if (!existsSync(cachePath)) return "cold";
+	try {
+		const stat = statSync(cachePath);
+		const ageMs = nowMs - stat.mtimeMs;
+		return ageMs > ttlMs ? "stale" : "warm";
+	} catch {
+		return "cold";
+	}
+}
 
 async function getPhishHackLabel(
 	address: string,
@@ -179,9 +255,35 @@ async function getPhishHackAddresses(
 	chainId: number,
 	options?: ProviderRequestOptions,
 ): Promise<Set<string> | null> {
+	// Respect timeboxed/no-cache modes (ex: wallet mode).
+	if (options?.cache === false) {
+		return await fetchPhishHackAddresses(chainId, options);
+	}
+
 	const cached = phishHackCache.get(chainId);
 	if (cached instanceof Set) return cached;
 	if (cached) return cached;
+
+	const diskSet = await readPhishHackDiskCache(chainId);
+	if (diskSet) {
+		phishHackCache.set(chainId, diskSet);
+
+		// Best-effort refresh when stale, but never block the caller on a slow export.
+		if (getPhishHackDiskCacheState(chainId, Date.now()) === "stale") {
+			const refreshTimeoutMs = resolveRefreshTimeoutMs(options?.timeoutMs);
+			const refreshed = await fetchPhishHackAddresses(chainId, {
+				...options,
+				timeoutMs: refreshTimeoutMs,
+			});
+			if (refreshed) {
+				phishHackCache.set(chainId, refreshed);
+				await writePhishHackDiskCache(chainId, refreshed);
+				return refreshed;
+			}
+		}
+
+		return diskSet;
+	}
 
 	const fetchPromise = fetchPhishHackAddresses(chainId, options);
 	phishHackCache.set(chainId, fetchPromise);
@@ -191,7 +293,65 @@ async function getPhishHackAddresses(
 		return null;
 	}
 	phishHackCache.set(chainId, resolved);
+	await writePhishHackDiskCache(chainId, resolved);
 	return resolved;
+}
+
+function resolveRefreshTimeoutMs(timeoutMs: number | undefined): number {
+	const base = timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+	return Math.max(500, Math.min(base, 2_000));
+}
+
+async function readPhishHackDiskCache(chainId: number): Promise<Set<string> | null> {
+	const cachePath = resolvePhishHackCachePath(chainId);
+	if (!existsSync(cachePath)) return null;
+
+	try {
+		const raw = await readFile(cachePath, "utf-8");
+		const parsed = safeJsonParse(raw);
+		const addresses = parsePhishHackCacheAddresses(parsed);
+		if (!addresses || addresses.length === 0) return null;
+		return new Set(addresses);
+	} catch {
+		return null;
+	}
+}
+
+async function writePhishHackDiskCache(chainId: number, addresses: Set<string>): Promise<void> {
+	const cachePath = resolvePhishHackCachePath(chainId);
+	try {
+		await mkdir(path.dirname(cachePath), { recursive: true });
+		const payload = {
+			version: PHISH_HACK_CACHE_VERSION,
+			updatedAtMs: Date.now(),
+			addresses: [...addresses],
+		};
+		await writeFile(cachePath, `${JSON.stringify(payload)}\n`, "utf-8");
+	} catch {
+		// Best-effort cache: failures should never break label lookup.
+	}
+}
+
+function safeJsonParse(raw: string): unknown | null {
+	try {
+		return JSON.parse(raw);
+	} catch {
+		return null;
+	}
+}
+
+function parsePhishHackCacheAddresses(value: unknown): string[] | null {
+	if (!isRecord(value)) return null;
+	if (value.version !== PHISH_HACK_CACHE_VERSION) return null;
+	if (!Array.isArray(value.addresses)) return null;
+
+	const addresses: string[] = [];
+	for (const entry of value.addresses) {
+		if (typeof entry !== "string") continue;
+		const normalized = parseCsvAddress(entry);
+		if (normalized) addresses.push(normalized);
+	}
+	return addresses;
 }
 
 async function fetchPhishHackAddresses(
@@ -199,11 +359,14 @@ async function fetchPhishHackAddresses(
 	options?: ProviderRequestOptions,
 ): Promise<Set<string> | null> {
 	try {
+		const totalTimeoutMs = options?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+		const perRequestTimeoutMs = Math.max(1_000, Math.floor(totalTimeoutMs / 2));
+
 		const exportUrl = `https://api-metadata.etherscan.io/v2/api?chainid=${chainId}&module=nametag&action=exportaddresstags&label=phish-hack&format=csv`;
 		const exportResponse = await fetchWithTimeout(
 			exportUrl,
 			{ signal: options?.signal },
-			options?.timeoutMs,
+			perRequestTimeoutMs,
 		);
 		if (!exportResponse.ok) return null;
 		const exportData = await exportResponse.json();
@@ -213,7 +376,7 @@ async function fetchPhishHackAddresses(
 		const csvResponse = await fetchWithTimeout(
 			csvLink,
 			{ signal: options?.signal },
-			options?.timeoutMs,
+			perRequestTimeoutMs,
 		);
 		if (!csvResponse.ok) return null;
 		const csv = await csvResponse.text();

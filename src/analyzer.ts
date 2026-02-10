@@ -185,7 +185,6 @@ export async function analyze(
 	// Normalize address
 	const addr = address.toLowerCase();
 	const etherscanKey = config?.etherscanKeys?.[chain];
-	const hasEtherscanKey = Boolean(etherscanKey && etherscanKey.trim().length > 0);
 	const rpcUrl = config?.rpcUrls?.[chain];
 	if (offline && !rpcUrl) {
 		throw new Error(
@@ -290,13 +289,13 @@ export async function analyze(
 	});
 
 	providerTasks.push(async () => {
+		const labelsCacheState = etherscan.getLabelsCacheState(chain);
 		const step = await runProvider({
 			id: "etherscanLabels",
 			label: "Etherscan Labels",
 			skipMessage: "skipped (--wallet)",
-			timeoutMessage: hasEtherscanKey
-				? undefined
-				: "timeout — tip: set ETHERSCAN_API_KEY for more reliable labels",
+			timeoutMessage:
+				labelsCacheState === "warm" ? undefined : `timeout (labels cache ${labelsCacheState})`,
 			fn: async (req) => {
 				return await deps.etherscan.getAddressLabels(addr, chain, etherscanKey, req);
 			},
