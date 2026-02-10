@@ -967,6 +967,18 @@ export interface PolicySummary {
 	decision?: PolicyDecision;
 }
 
+/**
+ * Clean assessment: everything is OK, no actionable findings, simulation is
+ * conclusive. Under Marco's UX principle, clean assessments get compact output
+ * (what's happening + verdict). Degraded assessments get full detail.
+ */
+function isCleanAssessment(result: AnalysisResult, hasCalldata: boolean): boolean {
+	if (result.recommendation !== "ok") return false;
+	if (simulationIsUncertain(result, hasCalldata)) return false;
+	if (collectChecksFindings(result).length > 0) return false;
+	return true;
+}
+
 export function renderResultBox(
 	result: AnalysisResult,
 	context?: {
@@ -996,6 +1008,33 @@ export function renderResultBox(
 		` Contract: ${contractLabel}`,
 	];
 
+	// Progressive disclosure: concise when assessment is strong, detailed when degraded.
+	const compact = isCleanAssessment(result, hasCalldata) && !verboseFindings;
+
+	if (compact) {
+		const sections: string[][] = [];
+
+		// Balance changes — only when there are actual changes to report
+		if (hasCalldata && result.simulation?.success) {
+			const changes = buildBalanceChangeItems(result.simulation, result.contract.chain);
+			if (changes.length > 0) {
+				sections.push(renderBalanceSection(result, hasCalldata, actorLabel));
+			}
+		}
+
+		// Approvals — only when there are actual approval changes
+		if (hasCalldata && buildApprovalItems(result).length > 0) {
+			sections.push(renderApprovalsSection(result, hasCalldata));
+		}
+
+		// Compact verdict: just the answer, no section header
+		const verdictLabel = hasCalldata ? "SAFE to continue." : "No issues found.";
+		sections.push([COLORS.ok(` ✅ ${verdictLabel}`)]);
+
+		return renderUnifiedBox(headerLines, sections, context?.maxWidth);
+	}
+
+	// Full detail: assessment quality is degraded or --verbose requested
 	const sections = hasCalldata
 		? [
 				renderRecommendationSection(result, hasCalldata, context?.policy),
@@ -1435,31 +1474,43 @@ export function renderSafeSummaryBox(options: {
 		.filter((r): r is Recommendation => r !== undefined);
 	const overall = recommendations.length > 0 ? worstRecommendation(recommendations) : undefined;
 
+	// Progressive disclosure: compact when all calls are clean, detailed when degraded.
+	const allClean =
+		analyzed.length > 0 &&
+		analyzed.length === calls.length &&
+		analyzed.every((c) => c.analysis && isCleanAssessment(c.analysis, true));
+	const compact = allClean && !verbose;
+
 	const sections: string[][] = [];
 
-	// Recommendation section (only when analysis is available)
-	if (overall) {
+	if (compact) {
+		// All calls passed — just show the verdict, no per-call breakdown
+		sections.push([COLORS.ok(" ✅ All calls passed. SAFE to continue.")]);
+	} else if (overall) {
+		// Degraded: show recommendation, per-call breakdown, and verdict
+
+		// Recommendation section
 		const style = recommendationStyle(overall);
 		const recLines = [
 			` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`,
 			` Why: ${buildSafeOverallWhy(calls)}`,
 		];
 		sections.push(recLines);
-	}
 
-	// Per-call summaries
-	const callLines: string[] = [];
-	for (let i = 0; i < calls.length; i++) {
-		const lines = formatCallSummaryLines(i, calls[i], true);
-		if (i > 0) callLines.push(""); // blank separator between calls
-		callLines.push(...lines);
-	}
-	sections.push(callLines);
+		// Per-call summaries
+		const callLines: string[] = [];
+		for (let i = 0; i < calls.length; i++) {
+			const lines = formatCallSummaryLines(i, calls[i], true);
+			if (i > 0) callLines.push(""); // blank separator between calls
+			callLines.push(...lines);
+		}
+		sections.push(callLines);
 
-	// Verdict (only when analysis is available)
-	if (overall) {
-		const style = recommendationStyle(overall);
-		const verdictLines = [` 👉 VERDICT: ${style.color(`${style.icon} ${style.label}`)}`];
+		// Verdict
+		const verdictStyle = recommendationStyle(overall);
+		const verdictLines = [
+			` 👉 VERDICT: ${verdictStyle.color(`${verdictStyle.icon} ${verdictStyle.label}`)}`,
+		];
 		const actionLine = buildSafeVerdictLine(overall);
 		if (actionLine.includes("BLOCK")) {
 			verdictLines.push(COLORS.danger(` ${actionLine}`));
@@ -1470,7 +1521,15 @@ export function renderSafeSummaryBox(options: {
 		}
 		sections.push(verdictLines);
 	} else {
-		// No analysis — explicit messaging
+		// No analysis — show call targets + explain why detail is missing
+		const callLines: string[] = [];
+		for (let i = 0; i < calls.length; i++) {
+			const lines = formatCallSummaryLines(i, calls[i], true);
+			if (i > 0) callLines.push(""); // blank separator between calls
+			callLines.push(...lines);
+		}
+		sections.push(callLines);
+
 		const noteLines = [
 			COLORS.dim(" ℹ️  Risk analysis requires network access."),
 			COLORS.dim("    Run without --offline for full scan."),

@@ -1,26 +1,14 @@
 Tx scan on ethereum
 
-┌────────────────────────────────────────────────────────────────────────────┐
-│  Chain: ethereum                                                           │
-│  Protocol: Uniswap (uniswap)                                               │
-│  Action: Swap 0.25 ETH → 750 USDC                                          │
-│  Contract: Universal Router                                                │
-├────────────────────────────────────────────────────────────────────────────┤
-│  🎯 RECOMMENDATION: ✅ OK                                                   │
-│  Why: No high-risk findings; simulation and intent checks look consistent. │
-├────────────────────────────────────────────────────────────────────────────┤
-│  🧾 CHECKS                                                                 │
-│  Context: verified · age: — · txs: —                                       │
-│  ✓ Source verified                                                         │
-│  ✓ Known protocol: Uniswap                                                 │
-├────────────────────────────────────────────────────────────────────────────┤
-│  💰 BALANCE CHANGES                                                        │
-│  - You sent 0.25 ETH                                                       │
-│  - You received 750 USDC                                                   │
-├────────────────────────────────────────────────────────────────────────────┤
-│  🔐 APPROVALS                                                              │
-│  - None detected                                                           │
-├────────────────────────────────────────────────────────────────────────────┤
-│  👉 VERDICT: ✅ OK                                                          │
-│  SAFE to continue.                                                         │
-└────────────────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────┐
+│  Chain: ethereum                  │
+│  Protocol: Uniswap (uniswap)      │
+│  Action: Swap 0.25 ETH → 750 USDC │
+│  Contract: Universal Router       │
+├───────────────────────────────────┤
+│  💰 BALANCE CHANGES               │
+│  - You sent 0.25 ETH              │
+│  - You received 750 USDC          │
+├───────────────────────────────────┤
+│  ✅ SAFE to continue.              │
+└───────────────────────────────────┘
