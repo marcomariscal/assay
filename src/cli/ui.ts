@@ -1044,12 +1044,14 @@ function contractVerificationState(result: AnalysisResult): "verified" | "unveri
 
 function formatChecksContextLine(result: AnalysisResult, mode: RenderMode): string {
 	const verificationState = contractVerificationState(result);
-	const ageMissing = result.contract.age_days === undefined;
-	const txCountMissing = result.contract.tx_count === undefined;
-	const ageLabel = ageMissing ? "age: —" : `age: ${result.contract.age_days}d`;
+	const ageDays = result.contract.age_days;
+	const txCount = result.contract.tx_count;
+	const ageMissing = ageDays === undefined;
+	const txCountMissing = txCount === undefined;
+	const ageLabel = ageMissing ? "age: —" : `age: ${ageDays}d`;
 	const txCountLabel = txCountMissing
 		? "txs: —"
-		: `txs: ${new Intl.NumberFormat("en-US").format(result.contract.tx_count)}`;
+		: `txs: ${new Intl.NumberFormat("en-US").format(txCount)}`;
 	const metadataReason =
 		mode === "wallet" && (ageMissing || txCountMissing)
 			? " · metadata: skipped in wallet mode for latency"
