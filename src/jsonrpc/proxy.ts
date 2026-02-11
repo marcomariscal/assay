@@ -34,7 +34,7 @@ export interface ProxyOptions {
 	 * Note: localhost fetches (ex: local Anvil) are allowed by default.
 	 */
 	offline?: boolean;
-	// When once=true, optionally terminate the process after handling a single request.
+	// When once=true, optionally terminate the process after the first intercepted send request.
 	// Default: true (used by CLI); tests may set false.
 	exitOnOnce?: boolean;
 	quiet?: boolean;
@@ -761,7 +761,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 	const configPromise = options.config ? Promise.resolve(options.config) : loadConfig();
 	let upstreamChainId: string | null = null;
 	let upstreamChainIdPromise: Promise<string | null> | null = null;
-	let handled = 0;
+	let interceptedHandled = 0;
 	let scanQueue: Promise<void> = Promise.resolve();
 
 	if (!options.scanFn) {
@@ -815,6 +815,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 				return jsonResponse(jsonRpcError(null, -32700, "Parse error"), 400);
 			}
 			const httpParseMs = nowMs() - parseStarted;
+			let handledInterceptableSend = false;
 
 			const handleSingle = async (
 				entry: unknown,
@@ -845,6 +846,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					return upstreamJson;
 				}
 
+				handledInterceptableSend = true;
 				const entryStarted = nowMs();
 
 				const calldata =
@@ -1125,8 +1127,10 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 				responsePayload = res;
 			}
 
-			handled += 1;
-			if (options.once && handled >= 1) {
+			if (handledInterceptableSend) {
+				interceptedHandled += 1;
+			}
+			if (options.once && interceptedHandled >= 1) {
 				// Allow the response to flush before stopping the server.
 				setTimeout(() => {
 					server.stop(true);
