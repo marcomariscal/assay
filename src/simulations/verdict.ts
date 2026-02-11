@@ -1,4 +1,5 @@
 import { determineRecommendation } from "../analyzer";
+import { decodeKnownCalldata } from "../analyzers/calldata/decoder";
 import { KNOWN_SPENDERS } from "../approvals/known-spenders";
 import type { ScanInput } from "../schema";
 import type { AnalysisResult, BalanceSimulationResult, Finding } from "../types";
@@ -150,7 +151,7 @@ export function buildSimulationNotRun(input: ScanInput["calldata"]): BalanceSimu
 		notes.push("Hint: missing calldata (`data`).");
 	}
 	const value = parseNumericValue(input.value);
-	if (value === null || value === 0n) {
+	if ((value === null || value === 0n) && calldataLooksLikeSwap(input.data)) {
 		notes.push("Hint: transaction value is 0; swaps often require non-zero ETH value.");
 	}
 	return {
@@ -166,6 +167,20 @@ export function buildSimulationNotRun(input: ScanInput["calldata"]): BalanceSimu
 		},
 		notes,
 	};
+}
+
+function calldataLooksLikeSwap(data: string | undefined): boolean {
+	if (!data || data === "0x") return false;
+	const decoded = decodeKnownCalldata(data);
+	if (!decoded) return false;
+	const functionName = decoded.functionName.toLowerCase();
+	const signature = decoded.signature?.toLowerCase() ?? "";
+	return (
+		functionName.includes("swap") ||
+		functionName.includes("exactinput") ||
+		functionName.includes("exactoutput") ||
+		signature.includes("swap")
+	);
 }
 
 function ensureCaution(

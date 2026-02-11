@@ -38,7 +38,7 @@ describe("cli recommendation label with simulation failures", () => {
 		const verdictLine = output.split("\n").find((line) => line.includes("👉 VERDICT:"));
 		expect(verdictLine).toBeDefined();
 		expect(verdictLine).not.toContain("OK");
-		expect(verdictLine).toContain("CAUTION");
+		expect(verdictLine).toContain("DANGER");
 		expect(output).toContain("BLOCK");
 		expect(output).not.toContain("- None detected");
 	});
@@ -52,7 +52,7 @@ describe("cli recommendation label with simulation failures", () => {
 		const verdictLine = output.split("\n").find((line) => line.includes("👉 VERDICT:"));
 		expect(verdictLine).toBeDefined();
 		expect(verdictLine).not.toContain("OK");
-		expect(verdictLine).toContain("CAUTION");
+		expect(verdictLine).toContain("DANGER");
 		expect(output).toContain("BLOCK");
 		expect(output).not.toContain("- None detected");
 	});
@@ -72,7 +72,7 @@ describe("cli recommendation label with simulation failures", () => {
 		const verdictLine = output.split("\n").find((line) => line.includes("👉 VERDICT:"));
 		expect(verdictLine).toBeDefined();
 		expect(verdictLine).not.toContain("OK");
-		expect(verdictLine).toContain("CAUTION");
+		expect(verdictLine).toContain("DANGER");
 		expect(output).toContain("BLOCK");
 		expect(output).toContain(
 			"Balance changes couldn't be fully verified — treat with extra caution.",
@@ -83,6 +83,40 @@ describe("cli recommendation label with simulation failures", () => {
 			"BLOCK — simulation coverage incomplete (balance coverage incomplete; approval coverage incomplete).",
 		);
 		expect(output).toContain("Unable to read pre-transaction approvals (missing previous block)");
+	});
+
+	test("filters swap-specific simulation hints from non-swap approval flows", () => {
+		const analysis: AnalysisResult = {
+			...baseAnalysis(),
+			intent: "Approve spender",
+			simulation: {
+				success: false,
+				revertReason: "Simulation failed",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
+				notes: ["Hint: transaction value is 0; swaps often require non-zero ETH value."],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).not.toContain("swaps often require non-zero ETH value");
+	});
+
+	test("renders user-facing simulation backend failures", () => {
+		const analysis: AnalysisResult = {
+			...baseAnalysis(),
+			simulation: {
+				success: false,
+				revertReason: "Anvil exited with code 1",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
+				notes: ["Hint: Anvil exited with code 1"],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).not.toContain("Anvil exited with code 1");
+		expect(output).toContain("Local simulation backend was unavailable.");
 	});
 
 	test("checks findings are severity-ordered and capped by default", () => {

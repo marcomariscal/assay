@@ -145,7 +145,7 @@ describe("proxy wallet explainability output", () => {
 			renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }),
 		);
 		expect(walletOutput).toContain(
-			"Action: Approve · token: USDC (0xa0b8...eb48) · spender: 0x0000...8ba3 · amount: UNLIMITED · call: approve(address,uint256)",
+			"Action: Approve · token: USDC (0xa0b8...eb48) · spender: Uniswap Permit2 (0x0000...8ba3) · amount: UNLIMITED · call: approve(address,uint256)",
 		);
 
 		for (const mode of ["default", "wallet"] as const) {

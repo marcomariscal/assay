@@ -995,6 +995,47 @@ function cleanReasonPhrase(input: string): string {
 	return cleanLabel(input).replace(/[.]+$/g, "");
 }
 
+function userFacingSimulationFailureReason(reason: string): string {
+	const normalized = cleanLabel(reason);
+	if (!normalized) return normalized;
+	if (/^anvil exited with code/i.test(normalized)) {
+		return "Local simulation backend was unavailable.";
+	}
+	if (/timed out waiting for anvil rpc to start/i.test(normalized)) {
+		return "Local simulation backend timed out.";
+	}
+	return normalized;
+}
+
+function isSwapSpecificHint(reason: string): boolean {
+	return reason.toLowerCase().includes("swaps often require non-zero eth value");
+}
+
+function decodedCallLooksLikeSwap(context: DecodedCallContext): boolean {
+	const signature = context.signature?.toLowerCase() ?? "";
+	const functionName = context.functionName?.toLowerCase() ?? "";
+	return (
+		signature.includes("swap") ||
+		functionName.includes("swap") ||
+		functionName.includes("exactinput") ||
+		functionName.includes("exactoutput")
+	);
+}
+
+function resultLooksLikeSwapAction(result: AnalysisResult): boolean {
+	if (typeof result.intent === "string" && result.intent.toLowerCase().includes("swap")) {
+		return true;
+	}
+	const decoded = findDecodedCallContext(result.findings);
+	if (!decoded) return false;
+	return decodedCallLooksLikeSwap(decoded);
+}
+
+function shouldIncludeSimulationReason(reason: string, result: AnalysisResult): boolean {
+	if (!isSwapSpecificHint(reason)) return true;
+	return resultLooksLikeSwapAction(result);
+}
+
 function collectDetailedInconclusiveReasons(result: AnalysisResult): string[] {
 	const simulation = result.simulation;
 	if (!simulation) return [];
@@ -1002,8 +1043,10 @@ function collectDetailedInconclusiveReasons(result: AnalysisResult): string[] {
 	const reasons: string[] = [];
 	const seen = new Set<string>();
 	const addReason = (reason: string) => {
-		const cleaned = cleanReasonPhrase(reason);
+		const surfaced = userFacingSimulationFailureReason(reason);
+		const cleaned = cleanReasonPhrase(surfaced);
 		if (!cleaned) return;
+		if (!shouldIncludeSimulationReason(cleaned, result)) return;
 		const key = cleaned.toLowerCase();
 		if (seen.has(key)) return;
 		seen.add(key);
@@ -1051,9 +1094,11 @@ function extractCoverageReasons(result: AnalysisResult): string[] {
 
 	const reasons: string[] = [];
 	if (!simulation.success) {
-		reasons.push(
-			`simulation didn't complete${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`,
-		);
+		const failureReason =
+			typeof simulation.revertReason === "string" && simulation.revertReason.length > 0
+				? userFacingSimulationFailureReason(simulation.revertReason)
+				: "";
+		reasons.push(`simulation didn't complete${failureReason ? ` (${failureReason})` : ""}`);
 	}
 	if (simulation.balances.confidence !== "high") {
 		reasons.push("balance coverage incomplete");
@@ -1145,9 +1190,13 @@ function renderBalanceSection(
 		return lines;
 	}
 	if (!result.simulation.success) {
-		const detail = result.simulation.revertReason ? ` (${result.simulation.revertReason})` : "";
+		const failureReason =
+			typeof result.simulation.revertReason === "string"
+				? userFacingSimulationFailureReason(result.simulation.revertReason)
+				: "";
+		const detail = failureReason ? ` (${failureReason})` : "";
 		lines.push(COLORS.warning(` - Simulation didn't complete${detail}`));
-		const hints = extractSimulationHints(result.simulation.notes);
+		const hints = extractSimulationHints(result.simulation.notes, result);
 		for (const hint of hints) {
 			lines.push(COLORS.warning(` - ${hint}`));
 		}
@@ -1584,7 +1633,38 @@ function resolvePolicyDecision(
 	return { decision: "ALLOW" };
 }
 
-function recommendationForDisplay(result: AnalysisResult, hasCalldata: boolean): Recommendation {
+function resolveNextActionDecision(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy?: PolicySummary,
+): PolicyDecision {
+	if (simulationIsUncertain(result, hasCalldata)) {
+		return "BLOCK";
+	}
+	if (policy) {
+		const effectivePolicy = resolvePolicyDecision(result, hasCalldata, policy);
+		if (effectivePolicy.decision !== "ALLOW") {
+			return effectivePolicy.decision;
+		}
+	}
+	if (result.recommendation === "danger") {
+		return "BLOCK";
+	}
+	if (result.recommendation === "warning" || result.recommendation === "caution") {
+		return "PROMPT";
+	}
+	return "ALLOW";
+}
+
+function recommendationForDisplay(
+	result: AnalysisResult,
+	hasCalldata: boolean,
+	policy?: PolicySummary,
+): Recommendation {
+	const nextAction = resolveNextActionDecision(result, hasCalldata, policy);
+	if (nextAction === "BLOCK") {
+		return "danger";
+	}
 	if (simulationIsUncertain(result, hasCalldata) && result.recommendation === "ok") {
 		return "caution";
 	}
@@ -1603,7 +1683,11 @@ function buildRecommendationWhy(
 			return "Simulation didn't run, so balance and approval effects couldn't be fully verified.";
 		}
 		if (!sim.success) {
-			const detail = sim.revertReason ? ` (${sim.revertReason})` : "";
+			const failureReason =
+				typeof sim.revertReason === "string"
+					? userFacingSimulationFailureReason(sim.revertReason)
+					: "";
+			const detail = failureReason ? ` (${failureReason})` : "";
 			return `Simulation didn't complete${detail}, so balance and approval effects couldn't be fully verified.`;
 		}
 		const reason = formatInconclusiveReason(result);
@@ -1633,7 +1717,7 @@ function buildRecommendationWhy(
 		return cleanLabel(topFinding.message);
 	}
 
-	const displayedRecommendation = recommendationForDisplay(result, hasCalldata);
+	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
 	if (displayedRecommendation === "ok") {
 		return hasCalldata
 			? "No high-risk findings; simulation and intent checks look consistent."
@@ -1653,7 +1737,7 @@ function renderRecommendationSection(
 	hasCalldata: boolean,
 	policy?: PolicySummary,
 ): string[] {
-	const displayedRecommendation = recommendationForDisplay(result, hasCalldata);
+	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
 	const style = recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`);
@@ -1711,7 +1795,7 @@ function renderVerdictSection(
 	policy?: PolicySummary,
 ): string[] {
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
-	const displayedRecommendation = recommendationForDisplay(result, hasCalldata);
+	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
 	const recommendation = recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(
@@ -2051,10 +2135,13 @@ function formatSimulationApproval(
 	};
 }
 
-function extractSimulationHints(notes: string[]): string[] {
-	const hints = notes.filter((note) => note.startsWith("Hint:"));
+function extractSimulationHints(notes: string[], result: AnalysisResult): string[] {
+	const hints = notes
+		.filter((note) => note.startsWith("Hint:"))
+		.map((hint) => userFacingSimulationFailureReason(hint.replace(/^Hint:\s*/, "")))
+		.filter((hint) => shouldIncludeSimulationReason(hint, result));
 	if (hints.length === 0) return [];
-	return hints.map((hint) => hint.replace(/^Hint:\s*/, ""));
+	return hints;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

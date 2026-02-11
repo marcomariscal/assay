@@ -135,7 +135,10 @@ export async function simulateBalance(
 				],
 			};
 		}
-		const message = error instanceof Error ? error.message : "Anvil simulation failed";
+		const message =
+			error instanceof Error
+				? toUserFacingSimulationFailure(error.message)
+				: "Simulation backend failed";
 		return simulateHeuristic(tx, chain, message, hints);
 	}
 }
@@ -311,7 +314,9 @@ async function simulateWithAnvilOnce(
 			} catch (error) {
 				const reason =
 					(await attemptRevertReason(client, { from, to, data, value: txValue })) ??
-					(error instanceof Error ? error.message : "Simulation failed");
+					(error instanceof Error
+						? toUserFacingSimulationFailure(error.message)
+						: "Simulation failed");
 				return simulateFailure(
 					reason,
 					notes,
@@ -444,7 +449,8 @@ async function simulateWithAnvilOnce(
 				notes,
 			};
 		} catch (error) {
-			const message = error instanceof Error ? error.message : "Simulation failed";
+			const message =
+				error instanceof Error ? toUserFacingSimulationFailure(error.message) : "Simulation failed";
 			return simulateFailure(
 				message,
 				notes,
@@ -864,10 +870,34 @@ function buildFailureHints(tx: CalldataInput): string[] {
 		hints.push("Hint: missing calldata (`data`).");
 	}
 	const value = parseValue(tx.value);
-	if (value === null || value === 0n) {
+	if ((value === null || value === 0n) && transactionLooksLikeSwap(tx)) {
 		hints.push("Hint: transaction value is 0; swaps often require non-zero ETH value.");
 	}
 	return hints;
+}
+
+function transactionLooksLikeSwap(tx: CalldataInput): boolean {
+	if (!tx.data || tx.data === "0x") return false;
+	const decoded = decodeKnownCalldata(tx.data);
+	if (!decoded) return false;
+	const functionName = decoded.functionName.toLowerCase();
+	const signature = decoded.signature?.toLowerCase() ?? "";
+	return (
+		functionName.includes("swap") ||
+		functionName.includes("exactinput") ||
+		functionName.includes("exactoutput") ||
+		signature.includes("swap")
+	);
+}
+
+function toUserFacingSimulationFailure(message: string): string {
+	if (/^Anvil exited with code/i.test(message)) {
+		return "Local simulation backend was unavailable.";
+	}
+	if (/Timed out waiting for anvil RPC to start/i.test(message)) {
+		return "Local simulation backend timed out.";
+	}
+	return message;
 }
 
 async function attemptRevertReason(
