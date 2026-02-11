@@ -38,6 +38,7 @@ export interface ProxyOptions {
 	// Default: true (used by CLI); tests may set false.
 	exitOnOnce?: boolean;
 	quiet?: boolean;
+	showTimings?: boolean;
 	recordDir?: string;
 	scanFn?: (
 		input: ScanInput,
@@ -671,6 +672,7 @@ async function defaultScanFn(
 export function createJsonRpcProxyServer(options: ProxyOptions) {
 	const policy = defaultPolicy(options.policy);
 	const quiet = options.quiet ?? false;
+	const showTimings = options.showTimings ?? false;
 	const exitOnOnce = options.exitOnOnce ?? true;
 	const recordDir =
 		typeof options.recordDir === "string" && options.recordDir.trim().length > 0
@@ -863,7 +865,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 				if (!quiet && outcome.renderedText) {
 					process.stdout.write(`${outcome.renderedText}\n`);
 				}
-				if (!quiet) {
+				if (!quiet && showTimings) {
 					process.stdout.write(`${timings.toLogLine(`timing ${entry.method}`)}\n`);
 				}
 

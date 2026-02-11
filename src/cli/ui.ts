@@ -31,6 +31,10 @@ export interface ProviderEvent {
 	message?: string;
 }
 
+export interface ProgressRendererOptions {
+	suppressLowSignalSuccess?: boolean;
+}
+
 const SPINNER_FRAMES = ["◐", "◓", "◑", "◒"];
 const NATIVE_SYMBOLS: Record<Chain, string> = {
 	ethereum: "ETH",
@@ -128,6 +132,20 @@ function isSkippedProgressMessage(message: string | undefined): boolean {
 	return message.toLowerCase().includes("skipped");
 }
 
+function isLowSignalSuccessMessage(message: string | undefined): boolean {
+	if (!message) return false;
+	const normalized = message.toLowerCase();
+	return (
+		normalized === "checked" ||
+		normalized === "no match" ||
+		normalized === "no data" ||
+		normalized === "metadata fetched" ||
+		normalized === "manual only" ||
+		normalized === "no proxy" ||
+		normalized.includes("skipped")
+	);
+}
+
 function activeProvidersLabel(activeProviders: string[]): string {
 	if (activeProviders.length === 0) {
 		return "Running checks...";
@@ -142,9 +160,10 @@ function activeProvidersLabel(activeProviders: string[]): string {
 	return `Checking ${first} (+${rest.length} more)...`;
 }
 
-export function createProgressRenderer(enabled: boolean) {
+export function createProgressRenderer(enabled: boolean, options?: ProgressRendererOptions) {
 	const spinner = new Spinner(enabled);
 	const activeProviders: string[] = [];
+	const suppressLowSignalSuccess = options?.suppressLowSignalSuccess ?? false;
 
 	const addActiveProvider = (provider: string) => {
 		if (activeProviders.includes(provider)) return;
@@ -173,6 +192,10 @@ export function createProgressRenderer(enabled: boolean) {
 				break;
 			case "success": {
 				removeActiveProvider(provider);
+				if (suppressLowSignalSuccess && isLowSignalSuccessMessage(message)) {
+					restartSpinnerIfNeeded();
+					break;
+				}
 				const detail = message ? ` ${COLORS.dim(`(${message})`)}` : "";
 				if (isSkippedProgressMessage(message)) {
 					spinner.succeed(`${COLORS.warning("⏭")} ${provider}${detail}`);
@@ -427,14 +450,24 @@ function formatProtocolDisplay(result: AnalysisResult): string {
 }
 
 function formatContractLabel(contract: AnalysisResult["contract"]): string {
+	const address = contract.address;
 	if (contract.is_proxy && contract.proxy_name) {
 		const proxyName = cleanLabel(contract.proxy_name);
-		const implementationName =
-			(contract.implementation_name ? cleanLabel(contract.implementation_name) : undefined) ??
-			(contract.implementation ? shortenAddress(contract.implementation) : "implementation");
-		return `${proxyName} → ${implementationName}`;
+		const proxyLabel = `${proxyName} (${address})`;
+		const implementationName = contract.implementation_name
+			? cleanLabel(contract.implementation_name)
+			: undefined;
+		const implementationLabel = implementationName
+			? contract.implementation
+				? `${implementationName} (${contract.implementation})`
+				: implementationName
+			: (contract.implementation ?? "implementation");
+		return `${proxyLabel} → ${implementationLabel}`;
 	}
-	return contract.name ? cleanLabel(contract.name) : contract.address;
+	if (contract.name) {
+		return `${cleanLabel(contract.name)} (${address})`;
+	}
+	return address;
 }
 
 function resolveActionLabel(result: AnalysisResult): string {
@@ -533,26 +566,76 @@ function findDecodedSignature(findings: Finding[]): string | null {
 	return null;
 }
 
+function cleanReasonPhrase(input: string): string {
+	return cleanLabel(input).replace(/[.]+$/g, "");
+}
+
+function collectDetailedInconclusiveReasons(result: AnalysisResult): string[] {
+	const simulation = result.simulation;
+	if (!simulation) return [];
+
+	const reasons: string[] = [];
+	const seen = new Set<string>();
+	const addReason = (reason: string) => {
+		const cleaned = cleanReasonPhrase(reason);
+		if (!cleaned) return;
+		const key = cleaned.toLowerCase();
+		if (seen.has(key)) return;
+		seen.add(key);
+		reasons.push(cleaned);
+	};
+
+	for (const note of simulation.notes) {
+		const normalized = cleanLabel(note);
+		if (!normalized) continue;
+
+		if (normalized.startsWith("Hint:")) {
+			addReason(normalized.replace(/^Hint:\s*/, ""));
+			continue;
+		}
+		if (normalized.startsWith("Unable to read pre-transaction")) {
+			addReason(normalized);
+			continue;
+		}
+		if (normalized.startsWith("Failed to read ERC-20")) {
+			addReason(normalized);
+			continue;
+		}
+		if (normalized.includes("budget")) {
+			addReason(normalized);
+			continue;
+		}
+		if (normalized.startsWith("Approval diff stage failed")) {
+			addReason(normalized);
+		}
+	}
+
+	if (simulation.balances.confidence !== "high") {
+		addReason("balance coverage incomplete");
+	}
+	if (simulation.approvals.confidence !== "high") {
+		addReason("approval coverage incomplete");
+	}
+
+	return reasons;
+}
+
 function formatInconclusiveReason(result: AnalysisResult): string {
 	const simulation = result.simulation;
 	if (!simulation) {
 		return "simulation data unavailable";
 	}
 	if (!simulation.success) {
-		return `simulation didn't complete${simulation.revertReason ? ` (${simulation.revertReason})` : ""}`;
+		const details = collectDetailedInconclusiveReasons(result).slice(0, 2);
+		const suffix = details.length > 0 ? `; ${details.join("; ")}` : "";
+		return `simulation didn't complete${simulation.revertReason ? ` (${simulation.revertReason})` : ""}${suffix}`;
 	}
 
-	const reasons: string[] = [];
-	if (simulation.balances.confidence !== "high") {
-		reasons.push("balance data incomplete");
+	const detailed = collectDetailedInconclusiveReasons(result);
+	if (detailed.length > 0) {
+		return detailed.slice(0, 2).join("; ");
 	}
-	if (simulation.approvals.confidence !== "high") {
-		reasons.push("approval data incomplete");
-	}
-	if (reasons.length === 0) {
-		return "simulation data incomplete";
-	}
-	return reasons.join("; ");
+	return "simulation data incomplete";
 }
 
 function formatBalanceChangeLine(changes: string[]): string {
@@ -679,12 +762,12 @@ function buildApprovalItems(result: AnalysisResult): RenderedApprovalItem[] {
 		return Array.from(items.values());
 	}
 
-	const tokenFallback = result.contract.name ?? shortenAddress(result.contract.address);
+	const tokenFallback = result.contract.name ?? result.contract.address;
 	for (const finding of result.findings) {
 		if (finding.code !== "UNLIMITED_APPROVAL") continue;
 		const details = finding.details;
 		const spender = details && typeof details.spender === "string" ? details.spender : undefined;
-		const spenderLabel = spender ? shortenAddress(spender) : "unknown";
+		const spenderLabel = spender ? spender : "unknown";
 		const key = `${tokenFallback.toLowerCase()}|${spenderLabel.toLowerCase()}|calldata`;
 		items.set(key, {
 			text: `Allow ${spenderLabel} to spend UNLIMITED ${tokenFallback}`,
@@ -942,13 +1025,13 @@ function renderPolicySection(
 	}
 
 	for (const endpoint of allowlisted) {
-		const address = shortenAddress(endpoint.address);
+		const address = endpoint.address;
 		const label = endpoint.label ? `${cleanLabel(endpoint.label)} (${address})` : address;
 		lines.push(COLORS.ok(` ✓ Allowlisted ${endpoint.role}: ${label}`));
 	}
 
 	for (const endpoint of nonAllowlisted) {
-		const address = shortenAddress(endpoint.address);
+		const address = endpoint.address;
 		const label = endpoint.label ? `${cleanLabel(endpoint.label)} (${address})` : address;
 		lines.push(COLORS.warning(` ⚠️ Non-allowlisted ${endpoint.role}: ${label}`));
 	}
@@ -1138,7 +1221,7 @@ function buildBalanceChangeItems(simulation: BalanceSimulationResult, chain: Cha
 
 	const erc20Net = aggregateErc20(simulation.balances.changes);
 	for (const change of erc20Net) {
-		const symbol = change.symbol ?? shortenAddress(change.address);
+		const symbol = change.symbol ?? change.address;
 		items.push(formatSignedAmount(change.amount, change.decimals, symbol));
 	}
 
@@ -1203,7 +1286,9 @@ function formatSimulationApproval(
 	key: string;
 } {
 	const spenderLabel = formatSpenderLabel(approval.spender, chain);
-	const tokenLabel = approval.symbol ? cleanLabel(approval.symbol) : shortenAddress(approval.token);
+	const tokenLabel = approval.symbol
+		? `${cleanLabel(approval.symbol)} (${approval.token})`
+		: approval.token;
 	const prefix = approval.standard === "permit2" ? "PERMIT2 " : "";
 
 	if (approval.scope === "all") {
@@ -1294,7 +1379,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function formatNftChange(change: AssetChange): string | null {
 	if (change.assetType !== "erc721" && change.assetType !== "erc1155") return null;
-	const label = change.address ? shortenAddress(change.address) : change.assetType.toUpperCase();
+	const label = change.address ? change.address : change.assetType.toUpperCase();
 	const tokenId = change.tokenId ? ` #${change.tokenId.toString()}` : "";
 	if (change.assetType === "erc1155" && change.amount) {
 		const signed = change.direction === "out" ? -change.amount : change.amount;
@@ -1339,22 +1424,20 @@ function formatNumberString(value: string, maxFractionDigits?: number): string {
 }
 
 function formatTokenLabel(token: string, symbol?: string): string {
-	const short = shortenAddress(token);
 	if (symbol && symbol.trim().length > 0) {
-		return `${cleanLabel(symbol)} (${short})`;
+		return `${cleanLabel(symbol)} (${token})`;
 	}
-	return short;
+	return token;
 }
 
 function formatSpenderLabel(spender: string, chain: Chain): string {
-	const short = shortenAddress(spender);
 	const known = (KNOWN_SPENDERS[chain] ?? []).find(
 		(entry) => entry.address.toLowerCase() === spender.toLowerCase(),
 	);
 	if (known) {
-		return `${known.name} (${short})`;
+		return `${known.name} (${spender})`;
 	}
-	return short;
+	return spender;
 }
 
 function formatTokenAmount(amount: bigint, decimals: number | undefined): string {

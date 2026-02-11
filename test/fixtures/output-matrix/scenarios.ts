@@ -129,9 +129,9 @@ const MALICIOUS_APPROVAL: OutputMatrixScenario = {
 		sender: "0xfeed00000000000000000000000000000000beef",
 	},
 	keyAssertions: [
-		"Action: Allow 0x9999...9999 to spend up to UNLIMITED USDC (0xa0b8...eb48)",
+		"Action: Allow 0x9999999999999999999999999999999999999999 to spend up to UNLIMITED USDC (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48)",
 		"🚨 Approval target is tied to known drainer activity [APPROVAL_TO_DANGEROUS_CONTRACT]",
-		"⚠️ Allow 0x9999...9999 to spend UNLIMITED USDC (was 0)",
+		"⚠️ Allow 0x9999999999999999999999999999999999999999 to spend UNLIMITED USDC (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) (was 0)",
 	],
 };
 
@@ -404,10 +404,10 @@ const INTRICATE_DEFI_ACTION: OutputMatrixScenario = {
 		sender: "0x5555555555555555555555555555555555555555",
 	},
 	keyAssertions: [
-		"Contract: WrappedTokenGatewayV3 → WrappedTokenGatewayV3Impl",
+		"Contract: WrappedTokenGatewayV3 (0x893411580e590d62ddbca8a703d61cc4a8c7b2b9) → WrappedTokenGatewayV3Impl (0x31f3eb672c4f6f8e64f2af6f5919f6f63f8e0f8f)",
 		"⚠️ Proxy / upgradeable (code can change)",
-		"⚠️ Allow 0x8787...a4e2 to spend 5,000 USDC (was 1,000)",
-		"✓ Revoke 0x8787...a4e2 spending of GHO (was 250)",
+		"⚠️ Allow 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2 to spend 5,000 USDC (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) (was 1,000)",
+		"✓ Revoke 0x87870bca3f3fd6335c3f4ce8392d69350b4fa4e2 spending of GHO (0x40d16fc0246a1f6811aebae6de4f4d3ef5f4377f) (was 250)",
 	],
 };
 

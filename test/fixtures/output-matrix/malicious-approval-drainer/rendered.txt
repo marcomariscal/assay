@@ -1,27 +1,27 @@
 Transaction scan on ethereum
 
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│  Chain: ethereum                                                                       │
-│  Protocol: USDC (usdc)                                                                 │
-│  Action: Allow 0x9999...9999 to spend up to UNLIMITED USDC (0xa0b8...eb48)             │
-│  Contract: USD Coin                                                                    │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│  🎯 RECOMMENDATION: 🚨 DANGER                                                          │
-│  Why: Approval target is tied to known drainer activity                                │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│  🧾 CHECKS                                                                             │
-│  Context: verified · age: — · txs: —                                                   │
-│  ✓ Source verified                                                                     │
-│  ✓ Known protocol: USDC                                                                │
-│  🚨 Approval target is tied to known drainer activity [APPROVAL_TO_DANGEROUS_CONTRACT] │
-│  ⚠️ Unlimited token approval (max allowance) [UNLIMITED_APPROVAL]                      │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│  💰 BALANCE CHANGES                                                                    │
-│  - No balance changes detected                                                         │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│  🔐 APPROVALS                                                                          │
-│  ⚠️ Allow 0x9999...9999 to spend UNLIMITED USDC (was 0)                                │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│  👉 VERDICT: 🚨 DANGER                                                                 │
-│  BLOCK — high-risk findings detected.                                                  │
-└────────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  Chain: ethereum                                                                                                                     │
+│  Protocol: USDC (usdc)                                                                                                               │
+│  Action: Allow 0x9999999999999999999999999999999999999999 to spend up to UNLIMITED USDC (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) │
+│  Contract: USD Coin (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48)                                                                     │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🎯 RECOMMENDATION: 🚨 DANGER                                                                                                        │
+│  Why: Approval target is tied to known drainer activity                                                                              │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🧾 CHECKS                                                                                                                           │
+│  Context: verified · age: — · txs: —                                                                                                 │
+│  ✓ Source verified                                                                                                                   │
+│  ✓ Known protocol: USDC                                                                                                              │
+│  🚨 Approval target is tied to known drainer activity [APPROVAL_TO_DANGEROUS_CONTRACT]                                               │
+│  ⚠️ Unlimited token approval (max allowance) [UNLIMITED_APPROVAL]                                                                    │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  💰 BALANCE CHANGES                                                                                                                  │
+│  - No balance changes detected                                                                                                       │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  🔐 APPROVALS                                                                                                                        │
+│  ⚠️ Allow 0x9999999999999999999999999999999999999999 to spend UNLIMITED USDC (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) (was 0)    │
+├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│  👉 VERDICT: 🚨 DANGER                                                                                                               │
+│  BLOCK — high-risk findings detected.                                                                                                │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
