@@ -171,7 +171,11 @@ Options:
   --threshold    Treat recommendation >= threshold as risky (default: caution)
   --on-risk      What to do when risky (block|prompt; default: prompt if TTY else block)
   --record-dir   Save intercepted tx + AnalyzeResponse + rendered output under this directory
-  --wallet       Wallet fast mode (skips slow providers; keeps simulation)
+  --wallet       Fast mode: reduced provider coverage for lower latency (~3s budget).
+                 Skips: Etherscan metadata/phishing labels, GoPlus token security.
+                 Keeps: Sourcify verification, protocol recognition, simulation.
+                 For high-stakes transactions (large approvals, new protocols),
+                 run without --wallet for full coverage (~10s).
   --once         Exit after the first intercepted send request (eth_sendTransaction/eth_sendRawTransaction)
   --timings      Print proxy timing footer lines (opt-in)
   --verbose      Keep low-signal provider progress details in proxy wallet mode
@@ -689,11 +693,12 @@ async function runProxy(args: string[]) {
 
 					const renderedText = quiet
 						? undefined
-						: `${renderHeading(`Transaction scan on ${ctx.chain} (wallet mode)`)}\n\n${renderResultBox(
+						: `${renderHeading(`Transaction scan on ${ctx.chain} (fast mode — reduced provider coverage)`)}\n\n${renderResultBox(
 								analysis,
 								{
 									hasCalldata: Boolean(input.calldata),
 									sender: input.calldata?.from,
+									mode: "wallet",
 									verbose,
 									maxWidth: terminalWidth(),
 								},
@@ -719,9 +724,16 @@ async function runProxy(args: string[]) {
 		console.log(`Wallet RPC URL: ${walletUrl}`);
 		console.log(`Health check: ${walletUrl}`);
 		console.log(`Upstream: ${upstreamUrl}`);
-		console.log(`Mode: ${wallet ? "wallet" : "default"}`);
+		console.log(`Mode: ${wallet ? "fast (--wallet)" : "default (full coverage)"}`);
 		console.log(`Threshold: ${threshold}`);
 		console.log(`On risk: ${onRisk ?? defaultOnRisk}`);
+		if (wallet) {
+			console.log("");
+			console.log(
+				"⚡ Fast mode: Etherscan metadata/phishing labels and GoPlus skipped for latency.",
+			);
+			console.log("   For high-stakes transactions, restart without --wallet for full coverage.");
+		}
 		console.log("");
 		console.log("Configure your wallet's RPC URL to point at this proxy.");
 	}
