@@ -17,7 +17,7 @@ By default it listens on `http://127.0.0.1:8545`.
 Useful flags:
 - `--hostname <host>` (default: `127.0.0.1`)
 - `--port <port>` (default: `8545`)
-- `--once` (handle one request then exit)
+- `--once` (exit after the first intercepted send request)
 - `--quiet` (less output)
 
 ## Wallet mode (fast)

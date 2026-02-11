@@ -172,7 +172,7 @@ Options:
   --on-risk      What to do when risky (block|prompt; default: prompt if TTY else block)
   --record-dir   Save intercepted tx + AnalyzeResponse + rendered output under this directory
   --wallet       Wallet fast mode (skips slow providers; keeps simulation)
-  --once         Handle one request then exit (useful for tests)
+  --once         Exit after the first intercepted send request (eth_sendTransaction/eth_sendRawTransaction)
   --timings      Print proxy timing footer lines (opt-in)
   --verbose      Keep low-signal provider progress details in proxy wallet mode
 
