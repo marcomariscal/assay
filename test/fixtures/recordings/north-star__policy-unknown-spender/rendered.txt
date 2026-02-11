@@ -8,7 +8,7 @@ Transaction scan on ethereum
 │  Decoded: approve(address,uint256) · args: spender=0x9999...9999, amount=MAX_UINT256 · selector 0x095ea7b3                     │
 │  Contract: USD Coin (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48)                                                               │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│  🎯 RECOMMENDATION: ⚠️ WARNING                                                                                                 │
+│  🎯 RECOMMENDATION: 🚨 DANGER                                                                                                  │
 │  Why: Policy blocked a non-allowlisted endpoint in this transaction.                                                           │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │  🧾 CHECKS                                                                                                                     │
@@ -32,6 +32,6 @@ Transaction scan on ethereum
 │  🔐 APPROVALS                                                                                                                  │
 │  ⚠️ Allow 0x9999999999999999999999999999999999999999 to spend UNLIMITED USD Coin                                               │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│  👉 VERDICT: ⚠️ WARNING                                                                                                        │
+│  👉 VERDICT: 🚨 DANGER                                                                                                         │
 │  BLOCK — policy rules did not allow this transaction.                                                                          │
 └────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘

@@ -24,6 +24,10 @@ export const KNOWN_SPENDERS: Record<Chain, KnownSpender[]> = {
 			address: "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
 		},
 		{
+			name: "Uniswap Permit2",
+			address: "0x000000000022d473030f116ddee9f6b43ac78ba3",
+		},
+		{
 			name: "SushiSwap Router",
 			address: "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f",
 		},
@@ -44,6 +48,10 @@ export const KNOWN_SPENDERS: Record<Chain, KnownSpender[]> = {
 		{
 			name: "Uniswap Universal Router",
 			address: "0x6ff5693b99212da76ad316178a184ab56d299b43",
+		},
+		{
+			name: "Uniswap Permit2",
+			address: "0x000000000022d473030f116ddee9f6b43ac78ba3",
 		},
 		{
 			name: "QuickSwap V2 Router",
@@ -67,6 +75,10 @@ export const KNOWN_SPENDERS: Record<Chain, KnownSpender[]> = {
 			name: "Uniswap Universal Router",
 			address: "0xa51afafe0263b40edaef0df8781ea9aa03e381a3",
 		},
+		{
+			name: "Uniswap Permit2",
+			address: "0x000000000022d473030f116ddee9f6b43ac78ba3",
+		},
 	],
 	optimism: [
 		{
@@ -84,6 +96,10 @@ export const KNOWN_SPENDERS: Record<Chain, KnownSpender[]> = {
 		{
 			name: "Uniswap Universal Router",
 			address: "0x851116d9223fabed8e56c0e6b8ad0c31d98b3507",
+		},
+		{
+			name: "Uniswap Permit2",
+			address: "0x000000000022d473030f116ddee9f6b43ac78ba3",
 		},
 		{
 			name: "SushiSwap Router",
@@ -106,6 +122,10 @@ export const KNOWN_SPENDERS: Record<Chain, KnownSpender[]> = {
 		{
 			name: "Uniswap Universal Router",
 			address: "0x1095692a6237d83c6a72f3f5efedb9a670c49223",
+		},
+		{
+			name: "Uniswap Permit2",
+			address: "0x000000000022d473030f116ddee9f6b43ac78ba3",
 		},
 		{
 			name: "SushiSwap Router",
