@@ -1,6 +1,7 @@
 Transaction scan on ethereum
 
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│  ⚡ FAST MODE — reduced provider coverage (Etherscan, GoPlus skipped)                                                           │
 │  Chain: ethereum                                                                                                               │
 │  Protocol: USDC                                                                                                                │
 │  Action: Approve · token: USD Coin (0xa0b8...eb48) · spender: 0x9999...9999 · amount: UNKNOWN · call: approve(address,uint256) │

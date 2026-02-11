@@ -64,6 +64,20 @@ describe("proxy wallet explainability output", () => {
 		);
 	});
 
+	test("shows fast mode coverage banner in wallet mode output", () => {
+		const analysis = buildBaseAnalysis();
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }));
+
+		expect(output).toContain("FAST MODE — reduced provider coverage (Etherscan, GoPlus skipped)");
+	});
+
+	test("does not show fast mode banner in default mode output", () => {
+		const analysis = buildBaseAnalysis();
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+
+		expect(output).not.toContain("FAST MODE");
+	});
+
 	test("shows explicit metadata-skipped reason in wallet mode context when metadata is absent", () => {
 		const analysis = buildBaseAnalysis();
 		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }));

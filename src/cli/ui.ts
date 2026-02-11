@@ -1555,6 +1555,9 @@ export function renderResultBox(
 	const contractLabel = formatContractLabel(result.contract);
 
 	const headerLines = [
+		...(renderMode === "wallet"
+			? [COLORS.warning(" ⚡ FAST MODE — reduced provider coverage (Etherscan, GoPlus skipped)")]
+			: []),
 		` Chain: ${result.contract.chain}`,
 		` Protocol: ${protocol}${protocolSuffix}`,
 		...(hasCalldata ? [` Action: ${action}`] : []),
