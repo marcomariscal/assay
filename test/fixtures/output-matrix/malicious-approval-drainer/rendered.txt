@@ -25,6 +25,7 @@ Transaction scan on ethereum
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │  🔐 APPROVALS                                                                                                                        │
 │  ⚠️ Allow 0x9999999999999999999999999999999999999999 to spend UNLIMITED USDC (0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48) (was 0)    │
+│  Mitigation: prefer exact allowance and revoke existing approvals when appropriate.                                                  │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │  👉 VERDICT: 🚨 DANGER                                                                                                               │
 │  BLOCK — high-risk findings detected.                                                                                                │
