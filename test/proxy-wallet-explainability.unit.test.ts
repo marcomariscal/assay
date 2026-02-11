@@ -113,10 +113,24 @@ describe("proxy wallet explainability output", () => {
 		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }));
 
 		expect(output).not.toContain("INCONCLUSIVE:");
+		expect(output).toContain("RECOMMENDATION: ⛔ BLOCK (UNVERIFIED)");
+		expect(output).toContain("VERDICT: ⛔ BLOCK (UNVERIFIED)");
 		expect(output).toContain(
 			"BLOCK — simulation coverage incomplete (balance coverage incomplete; approval coverage incomplete).",
 		);
+		expect(output).toContain(
+			"Next step: rerun with full coverage (disable fast mode) before signing.",
+		);
 		expect(output).toContain("upstream RPC returned truncated trace results");
+	});
+
+	test("adds mitigation guidance when unlimited approvals are shown", () => {
+		const analysis = buildBaseAnalysis();
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }));
+
+		expect(output).toContain(
+			"Mitigation: prefer exact allowance and revoke existing approvals when appropriate.",
+		);
 	});
 
 	test("renders decoded signature + args context in default and wallet mode", () => {

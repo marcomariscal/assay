@@ -31,6 +31,7 @@ Transaction scan on ethereum
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │  🔐 APPROVALS                                                                                                                  │
 │  ⚠️ Allow 0x9999999999999999999999999999999999999999 to spend UNLIMITED USD Coin                                               │
+│  Mitigation: prefer exact allowance and revoke existing approvals when appropriate.                                            │
 ├────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
 │  👉 VERDICT: 🚨 DANGER                                                                                                         │
 │  BLOCK — policy rules did not allow this transaction.                                                                          │

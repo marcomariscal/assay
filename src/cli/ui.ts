@@ -286,6 +286,16 @@ function recommendationStyle(recommendation: Recommendation) {
 	}
 }
 
+function simulationCoverageBlockStyle() {
+	return { label: "BLOCK (UNVERIFIED)", icon: "⛔", color: COLORS.warning };
+}
+
+const SIMULATION_COVERAGE_NEXT_STEP_LINE =
+	"Next step: rerun with full coverage (disable fast mode) before signing.";
+
+const UNLIMITED_APPROVAL_MITIGATION_LINE =
+	"Mitigation: prefer exact allowance and revoke existing approvals when appropriate.";
+
 const CHECKS_FINDINGS_CAP = 4;
 
 const FINDING_CODE_PRIORITY: Partial<Record<Finding["code"], number>> = {
@@ -1245,6 +1255,7 @@ type RenderedApprovalItem = {
 	detail?: string;
 	isWarning: boolean;
 	source: "calldata" | "simulation";
+	isUnlimitedApproval?: boolean;
 	key: string;
 };
 
@@ -1276,6 +1287,7 @@ function buildApprovalItems(result: AnalysisResult): RenderedApprovalItem[] {
 			text: `Allow ${spenderLabel} to spend UNLIMITED ${tokenFallback}`,
 			isWarning: true,
 			source: "calldata",
+			isUnlimitedApproval: true,
 			key,
 		});
 	}
@@ -1327,6 +1339,10 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 		if (approval.detail) {
 			lines.push(`   ${COLORS.warning(`(${approval.detail})`)}`);
 		}
+	}
+
+	if (approvals.some((approval) => approval.isUnlimitedApproval)) {
+		lines.push(` ${COLORS.warning(UNLIMITED_APPROVAL_MITIGATION_LINE)}`);
 	}
 	return lines;
 }
@@ -1737,8 +1753,11 @@ function renderRecommendationSection(
 	hasCalldata: boolean,
 	policy?: PolicySummary,
 ): string[] {
+	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
-	const style = recommendationStyle(displayedRecommendation);
+	const style = simulationUncertain
+		? simulationCoverageBlockStyle()
+		: recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`);
 	lines.push(` Why: ${buildRecommendationWhy(result, hasCalldata, policy)}`);
@@ -1782,6 +1801,8 @@ function renderPolicySection(
 		lines.push(COLORS.ok(decisionLine));
 	} else if (effectiveDecision.decision === "PROMPT") {
 		lines.push(COLORS.warning(decisionLine));
+	} else if (effectiveDecision.reason === "simulation incomplete") {
+		lines.push(COLORS.warning(decisionLine));
 	} else {
 		lines.push(COLORS.danger(decisionLine));
 	}
@@ -1796,7 +1817,9 @@ function renderVerdictSection(
 ): string[] {
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
-	const recommendation = recommendationStyle(displayedRecommendation);
+	const recommendation = simulationUncertain
+		? simulationCoverageBlockStyle()
+		: recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(
 		` 👉 VERDICT: ${recommendation.color(`${recommendation.icon} ${recommendation.label}`)}`,
@@ -1809,7 +1832,11 @@ function renderVerdictSection(
 		lines.push(COLORS.warning(` ⚠️ INCONCLUSIVE: ${formatInconclusiveReason(result)}`));
 	}
 	if (actionLine.includes("BLOCK")) {
-		lines.push(COLORS.danger(` ${actionLine}`));
+		const blockColor = simulationUncertain ? COLORS.warning : COLORS.danger;
+		lines.push(blockColor(` ${actionLine}`));
+		if (simulationUncertain) {
+			lines.push(COLORS.warning(` ${SIMULATION_COVERAGE_NEXT_STEP_LINE}`));
+		}
 	} else if (actionLine.includes("PROMPT")) {
 		lines.push(COLORS.warning(` ${actionLine}`));
 	} else {
@@ -2051,6 +2078,7 @@ function formatSimulationApproval(
 	text: string;
 	detail?: string;
 	isWarning: boolean;
+	isUnlimitedApproval?: boolean;
 	key: string;
 } {
 	const spenderLabel = formatSpenderLabel(approval.spender, result.contract.chain, result);
@@ -2131,6 +2159,7 @@ function formatSimulationApproval(
 		text: previousLabel ? `${action} (was ${previousLabel})` : action,
 		detail: previousLabel ? undefined : "previous allowance unknown",
 		isWarning: true,
+		isUnlimitedApproval: amountLabel === "UNLIMITED",
 		key: `${approval.token.toLowerCase()}|${approval.spender.toLowerCase()}|amount|${amountLabel}`,
 	};
 }
@@ -2296,6 +2325,9 @@ export function renderApprovalBox(
 	} else {
 		for (const finding of result.findings) {
 			findingsLines.push(` ${formatFindingLine(finding)}`);
+		}
+		if (result.findings.some((finding) => finding.code === "UNLIMITED_APPROVAL")) {
+			findingsLines.push(` ${COLORS.warning(UNLIMITED_APPROVAL_MITIGATION_LINE)}`);
 		}
 	}
 
@@ -2573,6 +2605,10 @@ function buildAggregateSafeApprovalSection(calls: SafeCallResult[]): string[] {
 		if (approval.detail) {
 			lines.push(`   ${COLORS.warning(`(${approval.detail})`)}`);
 		}
+	}
+
+	if (allItems.some((approval) => approval.isUnlimitedApproval)) {
+		lines.push(` ${COLORS.warning(UNLIMITED_APPROVAL_MITIGATION_LINE)}`);
 	}
 	return lines;
 }
