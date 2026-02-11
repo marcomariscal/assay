@@ -218,7 +218,7 @@ export async function analyze(
 		report?.({
 			provider: "RPC",
 			status: "success",
-			message: isContractAddress ? "contract detected" : "not a contract",
+			message: isContractAddress ? "interacting with contract" : "interacting with EOA",
 		});
 	}
 

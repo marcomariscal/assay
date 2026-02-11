@@ -95,6 +95,8 @@ const OPTION_SPECS: Record<string, CommandOptionSpecs> = {
 		"--wallet": { takesValue: false },
 		"--once": { takesValue: false },
 		"--quiet": { takesValue: false },
+		"--timings": { takesValue: false },
+		"--verbose": { takesValue: false },
 	},
 };
 
@@ -133,7 +135,7 @@ Usage:
   assay scan [address] [--format json|sarif] [--calldata <json|hex|@file|->] [--to <address>] [--from <address>] [--value <value>] [--fail-on <caution|warning|danger>] [--verbose] [--offline|--rpc-only]
   assay safe <chain> <safeTxHash> [--safe-tx-json <path>] [--offline|--rpc-only] [--format json|text] [--verbose] [--quiet] [--no-sim] [--output <path|->]
   assay approval --token <address> --spender <address> --amount <value> [--expected <address>] [--chain <chain>] [--offline|--rpc-only]
-  assay proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--offline|--rpc-only] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once]
+  assay proxy [--upstream <rpc-url>] [--save] [--port <port>] [--hostname <host>] [--chain <chain>] [--offline|--rpc-only] [--threshold <caution|warning|danger>] [--on-risk <block|prompt>] [--record-dir <path>] [--wallet] [--once] [--timings] [--verbose]
   assay mcp
 
 Scan modes:
@@ -171,6 +173,8 @@ Options:
   --record-dir   Save intercepted tx + AnalyzeResponse + rendered output under this directory
   --wallet       Wallet fast mode (skips slow providers; keeps simulation)
   --once         Handle one request then exit (useful for tests)
+  --timings      Print proxy timing footer lines (opt-in)
+  --verbose      Keep low-signal provider progress details in proxy wallet mode
 
   --token        Token address for approval analysis
   --spender      Spender address for approval analysis
@@ -623,6 +627,8 @@ async function runProxy(args: string[]) {
 	const wallet = args.includes("--wallet");
 	const once = args.includes("--once");
 	const quiet = args.includes("--quiet");
+	const showTimings = args.includes("--timings");
+	const verbose = args.includes("--verbose") || process.env.ASSAY_DEBUG === "1";
 	const offline = args.includes("--offline") || args.includes("--rpc-only");
 
 	const config = await loadConfig();
@@ -657,6 +663,7 @@ async function runProxy(args: string[]) {
 		chain,
 		once,
 		quiet,
+		showTimings,
 		recordDir,
 		config,
 		offline,
@@ -668,7 +675,9 @@ async function runProxy(args: string[]) {
 			? async (input, ctx) => {
 					const progress = quiet
 						? undefined
-						: createProgressRenderer(Boolean(process.stdout.isTTY));
+						: createProgressRenderer(Boolean(process.stdout.isTTY), {
+								suppressLowSignalSuccess: !verbose,
+							});
 
 					const { analysis, response } = await scanWithAnalysis(input, {
 						chain: ctx.chain,
@@ -685,6 +694,7 @@ async function runProxy(args: string[]) {
 								{
 									hasCalldata: Boolean(input.calldata),
 									sender: input.calldata?.from,
+									verbose,
 									maxWidth: terminalWidth(),
 								},
 							)}\n`;

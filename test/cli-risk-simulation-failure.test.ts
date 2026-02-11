@@ -64,7 +64,7 @@ describe("cli recommendation label with simulation failures", () => {
 				success: true,
 				balances: { changes: [], confidence: "low" },
 				approvals: { changes: [], confidence: "low" },
-				notes: [],
+				notes: ["Unable to read pre-transaction approvals (missing previous block)."],
 			},
 		};
 
@@ -78,6 +78,9 @@ describe("cli recommendation label with simulation failures", () => {
 			"Balance changes couldn't be fully verified — treat with extra caution.",
 		);
 		expect(output).toContain("Couldn't verify all approvals — treat with extra caution.");
+		expect(output).toContain(
+			"INCONCLUSIVE: Unable to read pre-transaction approvals (missing previous block)",
+		);
 	});
 
 	test("checks findings are severity-ordered and capped by default", () => {
