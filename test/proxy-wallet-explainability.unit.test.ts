@@ -115,16 +115,14 @@ describe("proxy wallet explainability output", () => {
 		expect(output).not.toContain("INCONCLUSIVE:");
 		expect(output).toContain("RECOMMENDATION: ⛔ BLOCK (UNVERIFIED)");
 		expect(output).toContain(
-			"Why: Simulation coverage incomplete. See verdict for blockers and next step.",
+			"Why: Simulation coverage incomplete (top blocker: balance coverage incomplete). Action: rerun without --wallet for full coverage before signing.",
 		);
 		expect(output).not.toContain("See verdict for specific blockers and next step.");
 		expect(output).toContain("VERDICT: ⛔ BLOCK (UNVERIFIED)");
 		expect(output).toContain(
 			"BLOCK — simulation coverage incomplete (balance coverage incomplete; approval coverage incomplete).",
 		);
-		expect(output).toContain(
-			"Next step: rerun with full coverage (disable fast mode) before signing.",
-		);
+		expect(output).toContain("Next step: rerun without --wallet for full coverage before signing.");
 		expect(output).toContain("upstream RPC returned truncated trace results");
 	});
 

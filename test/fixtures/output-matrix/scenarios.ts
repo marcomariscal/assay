@@ -240,7 +240,7 @@ const WEIRD_INCONCLUSIVE_EDGE: OutputMatrixScenario = {
 		"wallet fast-mode enabled; trace fallback only.",
 		"RECOMMENDATION: ⛔ BLOCK (UNVERIFIED)",
 		"BLOCK — simulation coverage incomplete",
-		"Next step: rerun with full coverage (disable fast mode) before signing.",
+		"Next step: rerun with full coverage before signing.",
 	],
 };
 
