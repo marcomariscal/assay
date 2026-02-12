@@ -68,6 +68,27 @@ const REPLAY_MATRIX: ReplayMatrixEntry[] = [
 		nativeDiff: "negative",
 		requireCalldataEmpty: true,
 	},
+	{
+		flow: "Uniswap V3 Router02 multicall swap",
+		fixturePath: "fixtures/txs/uniswap-v3-router02-multicall-eth-swap.json",
+		nativeDiff: "negative",
+		intentIncludes: "multicall",
+		requireDecodedCalldata: true,
+	},
+	{
+		flow: "1inch aggregated swap",
+		fixturePath: "fixtures/txs/1inch-aggregation-router-v6-swap.json",
+		nativeDiff: "zero",
+		intentIncludes: "1inch",
+		requireDecodedCalldata: true,
+	},
+	{
+		flow: "Safe execTransaction",
+		fixturePath: "fixtures/txs/safe-exec-transaction-gnosis-proxy.json",
+		nativeDiff: "zero",
+		intentIncludes: "Safe",
+		requireDecodedCalldata: true,
+	},
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
