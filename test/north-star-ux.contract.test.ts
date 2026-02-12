@@ -303,9 +303,7 @@ describe("north-star pre-sign UX (contract)", () => {
 				expect(normalizedActual).toContain("RECOMMENDATION: ⛔ BLOCK (UNVERIFIED)");
 				expect(normalizedActual).toContain("VERDICT: ⛔ BLOCK (UNVERIFIED)");
 				expect(normalizedActual).toContain("BLOCK — simulation coverage incomplete");
-				expect(normalizedActual).toContain(
-					"Next step: rerun with full coverage (disable fast mode) before signing.",
-				);
+				expect(normalizedActual).toContain("Next step: rerun");
 				expect(normalizedActual).not.toContain("⚠️ INCONCLUSIVE:");
 			} else {
 				expect(normalizedActual).not.toContain("INCONCLUSIVE");

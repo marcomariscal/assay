@@ -290,8 +290,16 @@ function simulationCoverageBlockStyle() {
 	return { label: "BLOCK (UNVERIFIED)", icon: "⛔", color: COLORS.warning };
 }
 
-const SIMULATION_COVERAGE_NEXT_STEP_LINE =
-	"Next step: rerun with full coverage (disable fast mode) before signing.";
+function simulationCoverageAction(mode: RenderMode): string {
+	if (mode === "wallet") {
+		return "rerun without --wallet for full coverage before signing";
+	}
+	return "rerun with full coverage before signing";
+}
+
+function simulationCoverageNextStepLine(mode: RenderMode): string {
+	return `Next step: ${simulationCoverageAction(mode)}.`;
+}
 
 const UNLIMITED_APPROVAL_MITIGATION_LINE =
 	"Mitigation: prefer exact allowance and revoke existing approvals when appropriate.";
@@ -1093,7 +1101,7 @@ function collectDetailedInconclusiveReasons(result: AnalysisResult): string[] {
 	if (simulation.balances.confidence !== "high") {
 		addReason("balance coverage incomplete");
 	}
-	if (shouldLabelApprovalCoverageIncomplete(result)) {
+	if (approvalCoverageIncomplete(result)) {
 		addReason("approval coverage incomplete");
 	}
 
@@ -1115,7 +1123,7 @@ function extractCoverageReasons(result: AnalysisResult): string[] {
 	if (simulation.balances.confidence !== "high") {
 		reasons.push("balance coverage incomplete");
 	}
-	if (shouldLabelApprovalCoverageIncomplete(result)) {
+	if (approvalCoverageIncomplete(result)) {
 		reasons.push("approval coverage incomplete");
 	}
 	if (reasons.length === 0) {
@@ -1201,9 +1209,9 @@ function approvalDeltaFullyDecoded(
 	return false;
 }
 
-function shouldLabelApprovalCoverageIncomplete(result: AnalysisResult): boolean {
+function approvalCoverageIncomplete(result: AnalysisResult): boolean {
 	const simulation = result.simulation;
-	if (!simulation) return false;
+	if (!simulation || !simulation.success) return true;
 	if (simulation.approvals.confidence === "high") return false;
 	if (simulation.approvals.confidence === "none") return true;
 
@@ -1214,14 +1222,16 @@ function shouldLabelApprovalCoverageIncomplete(result: AnalysisResult): boolean 
 
 function approvalsSectionCoverageSuffix(result: AnalysisResult): string {
 	const simulation = result.simulation;
-	if (!simulation) return "";
+	if (!simulation) {
+		return approvalCoverageIncomplete(result) ? " (incomplete)" : "";
+	}
 
 	const confidenceSuffix = sectionCoverageSuffix(simulation.approvals.confidence);
 	if (confidenceSuffix !== " (incomplete)") {
 		return confidenceSuffix;
 	}
 
-	return shouldLabelApprovalCoverageIncomplete(result) ? confidenceSuffix : "";
+	return approvalCoverageIncomplete(result) ? confidenceSuffix : "";
 }
 
 function isApprovalOnlyAction(result: AnalysisResult, hasCalldata: boolean): boolean {
@@ -1397,21 +1407,18 @@ function renderApprovalsSection(result: AnalysisResult, hasCalldata: boolean): s
 	}
 
 	const approvals = buildApprovalItems(result);
-	const simulationFailed = !result.simulation || !result.simulation.success;
-	if (simulationFailed) {
-		if (approvals.length === 0) {
-			lines.push(COLORS.warning(" - Couldn't verify approvals — treat with extra caution."));
-			return lines;
-		}
-		lines.push(COLORS.warning(" - Some approvals detected, but others may be missing:"));
-	}
+	const approvalsIncomplete = approvalCoverageIncomplete(result);
 	if (approvals.length === 0) {
-		if (result.simulation && result.simulation.approvals.confidence !== "high") {
+		if (approvalsIncomplete) {
 			lines.push(COLORS.warning(" - Couldn't verify all approvals — treat with extra caution."));
 			return lines;
 		}
 		lines.push(COLORS.dim(" - None detected"));
 		return lines;
+	}
+
+	if (approvalsIncomplete) {
+		lines.push(COLORS.warning(" - Some approvals detected, but others may be missing:"));
 	}
 
 	for (const approval of approvals) {
@@ -1769,14 +1776,21 @@ function recommendationForDisplay(
 	return result.recommendation;
 }
 
+function topCoverageBlocker(result: AnalysisResult): string {
+	const blocker = extractCoverageReasons(result)[0] ?? "simulation data incomplete";
+	return cleanReasonPhrase(blocker);
+}
+
 function buildRecommendationWhy(
 	result: AnalysisResult,
 	hasCalldata: boolean,
+	mode: RenderMode,
 	policy?: PolicySummary,
 ): string {
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	if (simulationUncertain) {
-		return "Simulation coverage incomplete. See verdict for blockers and next step.";
+		const blocker = topCoverageBlocker(result);
+		return `Simulation coverage incomplete (top blocker: ${blocker}). Action: ${simulationCoverageAction(mode)}.`;
 	}
 
 	if (policy) {
@@ -1820,6 +1834,7 @@ function buildRecommendationWhy(
 function renderRecommendationSection(
 	result: AnalysisResult,
 	hasCalldata: boolean,
+	mode: RenderMode,
 	policy?: PolicySummary,
 ): string[] {
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
@@ -1829,7 +1844,7 @@ function renderRecommendationSection(
 		: recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`);
-	lines.push(` Why: ${buildRecommendationWhy(result, hasCalldata, policy)}`);
+	lines.push(` Why: ${buildRecommendationWhy(result, hasCalldata, mode, policy)}`);
 	return lines;
 }
 
@@ -1882,6 +1897,7 @@ function renderPolicySection(
 function renderVerdictSection(
 	result: AnalysisResult,
 	hasCalldata: boolean,
+	mode: RenderMode,
 	policy?: PolicySummary,
 ): string[] {
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
@@ -1904,7 +1920,7 @@ function renderVerdictSection(
 		const blockColor = simulationUncertain ? COLORS.warning : COLORS.danger;
 		lines.push(blockColor(` ${actionLine}`));
 		if (simulationUncertain) {
-			lines.push(COLORS.warning(` ${SIMULATION_COVERAGE_NEXT_STEP_LINE}`));
+			lines.push(COLORS.warning(` ${simulationCoverageNextStepLine(mode)}`));
 		}
 	} else if (actionLine.includes("PROMPT")) {
 		lines.push(COLORS.warning(` ${actionLine}`));
@@ -2053,19 +2069,19 @@ export function renderResultBox(
 	const explorerLinks = renderExplorerLinksSection(result, hasCalldata, context?.policy);
 	const sections = hasCalldata
 		? [
-				renderRecommendationSection(result, hasCalldata, context?.policy),
+				renderRecommendationSection(result, hasCalldata, renderMode, context?.policy),
 				renderChecksSection(result, verboseFindings, renderMode),
 				...(explorerLinks.length > 0 ? [explorerLinks] : []),
 				...(context?.policy ? [renderPolicySection(result, hasCalldata, context.policy)] : []),
 				renderBalanceSection(result, hasCalldata, actorLabel),
 				renderApprovalsSection(result, hasCalldata),
-				renderVerdictSection(result, hasCalldata, context?.policy),
+				renderVerdictSection(result, hasCalldata, renderMode, context?.policy),
 			]
 		: [
-				renderRecommendationSection(result, hasCalldata, context?.policy),
+				renderRecommendationSection(result, hasCalldata, renderMode, context?.policy),
 				renderChecksSection(result, verboseFindings, renderMode),
 				...(context?.policy ? [renderPolicySection(result, hasCalldata, context.policy)] : []),
-				renderVerdictSection(result, hasCalldata, context?.policy),
+				renderVerdictSection(result, hasCalldata, renderMode, context?.policy),
 			];
 
 	return renderUnifiedBox(headerLines, sections, context?.maxWidth);
