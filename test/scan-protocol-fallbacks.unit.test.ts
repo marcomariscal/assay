@@ -96,4 +96,28 @@ describe("scan protocol labeling fallbacks", () => {
 		expect(analysis.intent).toContain("Approve");
 		expect(analysis.intent).toContain("UNLIMITED");
 	});
+
+	test("labels Seamless Protocol for ILM 3x Loop vault redeem on Base", async () => {
+		const { analysis } = await scanWithAnalysis(
+			{
+				calldata: {
+					to: "0x258730e23cf2f25887cb962d32bd10b878ea8a4e",
+					from: "0x6b821bd540ef180ab6e8219af224f9ba52045471",
+					data: "0xba0876520000000000000000000000000000000000000000000000000007167d69daff890000000000000000000000006b821bd540ef180ab6e8219af224f9ba520454710000000000000000000000006b821bd540ef180ab6e8219af224f9ba52045471",
+					value: "0",
+					chain: "8453",
+				},
+			},
+			{
+				chain: "base",
+				config: { simulation: { enabled: false } },
+				analyzeOptions: {
+					deps: createStubDeps(),
+				},
+			},
+		);
+		expect(analysis.protocol).toBe("Seamless Protocol");
+		expect(analysis.intent).toContain("Redeem");
+		expect(analysis.intent).toContain("shares");
+	});
 });

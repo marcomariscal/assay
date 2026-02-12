@@ -75,6 +75,7 @@ const PROTOCOL_LABEL_FALLBACKS: Partial<Record<Chain, Record<string, string>>> =
 	base: {
 		// Seamless Protocol ILM vaults (representative known deployments)
 		"0x6426811ff283fa7c78f0bc5d71858c2f79c0fc3d": "Seamless Protocol",
+		"0x258730e23cf2f25887cb962d32bd10b878ea8a4e": "Seamless Protocol",
 	},
 };
 

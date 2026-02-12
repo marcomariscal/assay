@@ -62,6 +62,11 @@ const KNOWN_PROTOCOL_ADDRESSES: Partial<Record<Chain, Record<string, ProtocolOve
 			name: "Seamless Protocol",
 			slug: "seamless-protocol",
 		},
+		// Seamless ILM 3x Loop wstETH/ETH vault (ERC1967Proxy → LoopStrategy)
+		"0x258730e23cf2f25887cb962d32bd10b878ea8a4e": {
+			name: "Seamless Protocol",
+			slug: "seamless-protocol",
+		},
 	},
 };
 

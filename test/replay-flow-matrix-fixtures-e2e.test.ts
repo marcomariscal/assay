@@ -313,6 +313,16 @@ const REPLAY_MATRIX: ReplayMatrixEntry[] = [
 		requireFindingCodes: ["EIP7702_AUTHORIZATION"],
 		requireSimulationNoteIncludes: ["authorization list detected but not replayed"],
 	},
+	// Lane 13: Seamless Protocol ILM leverage-token redeem (ERC-4626 vault on Base)
+	{
+		flow: "Seamless ILM 3x wstETH/ETH redeem (ERC-4626 vault, Base)",
+		fixturePath: "fixtures/txs/seamless-ilm-redeem-wsteth-634fca6e.json",
+		nativeDiff: "zero",
+		intentIncludes: "Redeem",
+		requireDecodedCalldata: true,
+		requireDecodedFunctionName: "redeem",
+		requireProtocolTagIncludes: "Seamless Protocol",
+	},
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
