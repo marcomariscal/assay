@@ -207,6 +207,18 @@ const LOCAL_SELECTOR_FALLBACKS: Record<string, LocalSelectorFallback> = {
 			"swap(address,(address,address,address,address,uint256,uint256,uint256),bytes,bytes)",
 		functionName: "swap",
 	},
+	// 1inch Aggregation Router V6
+	"0x07ed2379": {
+		signature:
+			"swap(address,address,(address,address,address,address,uint256,uint256,uint256),bytes,bytes)",
+		functionName: "swap",
+	},
+	// Gnosis Safe / Safe execTransaction
+	"0x6a761202": {
+		signature:
+			"execTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes)",
+		functionName: "execTransaction",
+	},
 };
 
 export type DecodedCallSource = "known-abi" | "signature-db" | "contract-abi" | "local-selector";

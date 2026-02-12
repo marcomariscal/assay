@@ -503,6 +503,62 @@ const permit2PermitTransferFrom: IntentTemplate = {
 	},
 };
 
+const routerMulticall: IntentTemplate = {
+	id: "router-multicall",
+	match: (call) =>
+		call.functionName === "multicall" &&
+		(call.selector === "0x5ae401dc" || call.selector === "0xac9650d8"),
+	render: (call) => {
+		const args = call.args;
+		let subCallCount: number | undefined;
+		if (isRecord(args)) {
+			const data = args.data;
+			if (Array.isArray(data)) {
+				subCallCount = data.length;
+			}
+		} else if (Array.isArray(args)) {
+			const first = args[0];
+			if (Array.isArray(first)) {
+				subCallCount = first.length;
+			}
+			const second = args[1];
+			if (Array.isArray(second)) {
+				subCallCount = second.length;
+			}
+		}
+		const countLabel =
+			subCallCount !== undefined
+				? ` (${subCallCount} sub-call${subCallCount === 1 ? "" : "s"})`
+				: "";
+		return `Router multicall${countLabel}`;
+	},
+};
+
+const oneInchSwap: IntentTemplate = {
+	id: "1inch-swap",
+	match: (call) =>
+		call.functionName === "swap" &&
+		(call.selector === "0x12aa3caf" || call.selector === "0x07ed2379"),
+	render: () => "1inch aggregated swap",
+};
+
+const safeExecTransaction: IntentTemplate = {
+	id: "safe-exec-transaction",
+	match: (call) => call.functionName === "execTransaction" && call.selector === "0x6a761202",
+	render: (call) => {
+		const to = readArg(call, "to", 0);
+		const value = readArg(call, "value", 1);
+		const toLabel = typeof to === "string" ? formatValue(to) : undefined;
+		const formattedValue = formatValue(value);
+		const hasValue = formattedValue !== null && formattedValue !== "0";
+		const target = toLabel ?? "target";
+		if (hasValue) {
+			return `Safe: execute transaction to ${target} (value: ${formattedValue})`;
+		}
+		return `Safe: execute transaction to ${target}`;
+	},
+};
+
 const wethDeposit: IntentTemplate = {
 	id: "weth-deposit",
 	match: (call) => call.functionName === "deposit" && call.selector === "0xd0e30db0",
@@ -548,6 +604,9 @@ export const INTENT_TEMPLATES: IntentTemplate[] = [
 	uniswapV3ExactOutput,
 	permit2Permit,
 	permit2PermitTransferFrom,
+	routerMulticall,
+	oneInchSwap,
+	safeExecTransaction,
 	wethDeposit,
 	wethWithdraw,
 ];
