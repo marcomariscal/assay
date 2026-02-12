@@ -5,6 +5,7 @@ import { buildIntent } from "./intent";
 import {
 	type AnalyzeResponse,
 	ASSAY_SCHEMA_VERSION,
+	type CalldataInput,
 	type ContractInfo,
 	type BalanceSimulationResult as ScanBalanceSimulationResult,
 	type ScanFinding,
@@ -135,10 +136,11 @@ async function mergeCalldataAnalysis(
 			})
 		: null;
 	const plainTransferIntent = buildPlainEthTransferIntent(input.calldata);
-	const hasFindings = calldataAnalysis.findings.length > 0;
+	const eip7702Findings = buildEip7702Findings(input.calldata);
+	const hasFindings = calldataAnalysis.findings.length > 0 || eip7702Findings.length > 0;
 	if (!hasFindings && !intent && !plainTransferIntent) return analysis;
 	const findings = hasFindings
-		? [...analysis.findings, ...calldataAnalysis.findings]
+		? [...analysis.findings, ...calldataAnalysis.findings, ...eip7702Findings]
 		: analysis.findings;
 	return {
 		...analysis,
@@ -147,6 +149,37 @@ async function mergeCalldataAnalysis(
 		protocol: plainTransferIntent ? "ETH Transfer" : analysis.protocol,
 		intent: plainTransferIntent ?? intent ?? analysis.intent,
 	};
+}
+
+/**
+ * Generate findings for EIP-7702 (type-4) transactions with authorization lists.
+ *
+ * Authorization lists delegate the sender's EOA to contract code, which is a
+ * significant security surface. Each delegate address is surfaced as a finding
+ * so the user can make an informed decision.
+ */
+function buildEip7702Findings(calldata: CalldataInput): Finding[] {
+	const authList = calldata.authorizationList;
+	if (!authList || authList.length === 0) return [];
+
+	const findings: Finding[] = [];
+	const delegates = authList.map((entry) => entry.address);
+
+	findings.push({
+		level: "warning",
+		code: "EIP7702_AUTHORIZATION",
+		message: `EIP-7702 transaction delegates sender EOA to ${delegates.length} contract(s): ${delegates.join(", ")}. The sender's account will temporarily execute code from these addresses.`,
+		details: {
+			delegateCount: delegates.length,
+			delegates: authList.map((entry) => ({
+				address: entry.address,
+				chainId: entry.chainId,
+				nonce: entry.nonce,
+			})),
+		},
+	});
+
+	return findings;
 }
 
 export function buildAnalyzeResponse(

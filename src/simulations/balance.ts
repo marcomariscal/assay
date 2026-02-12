@@ -249,6 +249,16 @@ async function simulateWithAnvilOnce(
 	let balanceConfidence: SimulationConfidenceLevel = "high";
 	let approvalsConfidence: SimulationConfidenceLevel = "high";
 
+	if (tx.authorizationList && tx.authorizationList.length > 0) {
+		notes.push(
+			"EIP-7702 authorization list detected but not replayed in simulation. " +
+				"Anvil sendUnsignedTransaction does not support code delegation; " +
+				"simulation results may not reflect actual execution behavior.",
+		);
+		balanceConfidence = "low";
+		approvalsConfidence = "low";
+	}
+
 	return await instance.runExclusive(async () => {
 		const warmResetResult = await instance.resetFork();
 		timings?.add("anvil.warmReset", warmResetResult.ms);
