@@ -238,6 +238,16 @@ const REPLAY_MATRIX: ReplayMatrixEntry[] = [
 		requireDecodedCalldata: true,
 		requireDecodedFunctionName: "execTransactionFromModuleReturnData",
 	},
+	// === Pass 18b: Universal Router command-stream multi-step path ===
+	// Lane 11: Dense multi-command Universal Router execution (3+ commands)
+	{
+		flow: "Universal Router multi-step: WRAP_ETH → V2_SWAP_EXACT_IN → SWEEP (3-command stream)",
+		fixturePath: "fixtures/txs/universal-router-v3-multistep-wrap-swap-sweep-ab1f354b.json",
+		nativeDiff: "negative",
+		intentIncludes: "Uniswap Universal Router",
+		requireDecodedCalldata: true,
+		requireDecodedFunctionName: "execute",
+	},
 ];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -524,17 +534,7 @@ const SCAFFOLD_LANES: ReplayLaneScaffold[] = [
 	// Bridge: Optimism Standard Bridge depositETH — PROMOTED to real lane (Pass 17)
 	// Marketplace order fulfillment (Seaport-style) — PROMOTED to real lane (Pass 18)
 	// Safe module enable / execTransactionFromModule — PROMOTED to real lane (Pass 18)
-	{
-		lane: "Universal Router command-stream multi-step path",
-		placeholderFixturePath: "fixtures/txs/universal-router-command-stream-multistep-TODO.json",
-		skipReason:
-			"Current matrix has basic Universal Router coverage; no dense multi-command stream fixture yet.",
-		acceptanceCriteria: [
-			"Fixture contains command stream with 3+ actionable steps",
-			"Decoded command labels preserved in intent as a step summary",
-			"Findings reflect combined approval/swap/sweep risk composition",
-		],
-	},
+	// Universal Router command-stream multi-step path — PROMOTED to real lane (Pass 18b)
 	{
 		lane: "Flashloan path",
 		placeholderFixturePath: "fixtures/txs/flashloan-path-TODO.json",
