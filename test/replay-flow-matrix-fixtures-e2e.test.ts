@@ -29,6 +29,10 @@ type ReplayMatrixEntry = {
 	forbidFindingCodes?: string[];
 	/** Assert simulation notes include these substrings */
 	requireSimulationNoteIncludes?: string[];
+	/** Assert a simulation approval change with matching standard exists */
+	requireApprovalStandard?: "erc20" | "erc721" | "erc1155" | "permit2";
+	/** Assert a simulation approval change has approved=true|false */
+	requireApprovalApproved?: boolean;
 };
 
 type ReplayLaneScaffold = {
@@ -162,28 +166,30 @@ const REPLAY_MATRIX: ReplayMatrixEntry[] = [
 		flow: "ERC721 setApprovalForAll (ENS → OpenSea operator)",
 		fixturePath: "fixtures/txs/erc721-approval-for-all-ens-opensea-true.json",
 		nativeDiff: "zero",
-		intentIncludes: "Grant",
 		requireDecodedCalldata: true,
 		requireDecodedFunctionName: "setApprovalForAll",
 		requireFindingCodes: ["SIM_APPROVAL_FOR_ALL_UNKNOWN_OPERATOR"],
+		requireApprovalStandard: "erc721",
+		requireApprovalApproved: true,
 	},
 	{
 		flow: "ERC721 setApprovalForAll revoke (ENS operator false-positive guard)",
 		fixturePath: "fixtures/txs/erc721-approval-for-all-ens-revoke-false.json",
 		nativeDiff: "zero",
-		intentIncludes: "Revoke",
-		intentExcludes: ["Grant"],
 		requireDecodedCalldata: true,
 		requireDecodedFunctionName: "setApprovalForAll",
 		forbidFindingCodes: ["SIM_APPROVAL_FOR_ALL_UNKNOWN_OPERATOR"],
+		requireApprovalStandard: "erc721",
+		requireApprovalApproved: false,
 	},
 	{
 		flow: "ERC1155 setApprovalForAll (Mirror MNFTs → operator)",
 		fixturePath: "fixtures/txs/erc1155-approval-for-all-mirror-mnfts-opensea-true.json",
 		nativeDiff: "zero",
-		intentIncludes: "Grant",
 		requireDecodedCalldata: true,
 		requireFindingCodes: ["SIM_APPROVAL_FOR_ALL_UNKNOWN_OPERATOR"],
+		requireApprovalStandard: "erc1155",
+		requireApprovalApproved: true,
 	},
 	// Lane 4: Bridge transaction path (Circle CCTP depositForBurn)
 	{
@@ -445,6 +451,22 @@ function hasVerifiedFindingWithName(findings: unknown, name: string): boolean {
 	return false;
 }
 
+function hasApprovalChange(
+	simulation: unknown,
+	expected: { standard?: "erc20" | "erc721" | "erc1155" | "permit2"; approved?: boolean },
+): boolean {
+	if (!isRecord(simulation)) return false;
+	const approvals = simulation.approvals;
+	if (!isRecord(approvals) || !Array.isArray(approvals.changes)) return false;
+	for (const change of approvals.changes) {
+		if (!isRecord(change)) continue;
+		if (expected.standard !== undefined && change.standard !== expected.standard) continue;
+		if (expected.approved !== undefined && change.approved !== expected.approved) continue;
+		return true;
+	}
+	return false;
+}
+
 describe("real replay flow matrix e2e", () => {
 	for (const entry of REPLAY_MATRIX) {
 		test(`${entry.flow} (${entry.fixturePath})`, async () => {
@@ -539,6 +561,17 @@ describe("real replay flow matrix e2e", () => {
 				expect(hasVerifiedFindingWithName(parsed.scan.findings, entry.requireVerifiedName)).toBe(
 					true,
 				);
+			}
+			if (
+				entry.requireApprovalStandard !== undefined ||
+				entry.requireApprovalApproved !== undefined
+			) {
+				expect(
+					hasApprovalChange(simulation, {
+						standard: entry.requireApprovalStandard,
+						approved: entry.requireApprovalApproved,
+					}),
+				).toBe(true);
 			}
 			if (entry.requireFindingCodes) {
 				for (const code of entry.requireFindingCodes) {
