@@ -218,12 +218,22 @@ describe("intent templates", () => {
 				approved: false,
 			},
 		};
+		const grantCallWithAliasArgNames: DecodedCall = {
+			...grantCall,
+			args: {
+				to: "0x0000000000000000000000000000000000000abc",
+				approved: true,
+			},
+		};
 
 		expect(buildIntent(grantCall, { contractName: "ENS" })).toBe(
 			"Grant 0x0000000000000000000000000000000000000abc operator access to all ENS tokens",
 		);
 		expect(buildIntent(revokeCall, { contractName: "ENS" })).toBe(
 			"Revoke 0x0000000000000000000000000000000000000abc operator access to all ENS tokens",
+		);
+		expect(buildIntent(grantCallWithAliasArgNames, { contractName: "ENS" })).toBe(
+			"Grant 0x0000000000000000000000000000000000000abc operator access to all ENS tokens",
 		);
 	});
 

@@ -47,6 +47,22 @@ const KNOWN_PROTOCOL_ADDRESSES: Partial<Record<Chain, Record<string, ProtocolOve
 		// Compound
 		"0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b": { name: "Compound", slug: "compound-finance" },
 	},
+	base: {
+		// Seamless Protocol (Aave V3 fork)
+		"0x0e02eb705be325407707662c6f6d3466e939f3a0": {
+			name: "Seamless Protocol",
+			slug: "seamless-protocol",
+		},
+		"0x1c7a460413dd4e964f96d8dfc56e7223ce88cd85": {
+			name: "Seamless Protocol",
+			slug: "seamless-protocol",
+		},
+		// Seamless ILM vaults (representative known deployments)
+		"0x6426811ff283fa7c78f0bc5d71858c2f79c0fc3d": {
+			name: "Seamless Protocol",
+			slug: "seamless-protocol",
+		},
+	},
 };
 
 interface Protocol {

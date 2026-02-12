@@ -138,6 +138,10 @@ function readArg(call: DecodedCall, name: string, index: number): unknown {
 		if (Object.hasOwn(args, indexKey)) {
 			return args[indexKey];
 		}
+		const values = Object.values(args);
+		if (index >= 0 && index < values.length) {
+			return values[index];
+		}
 	}
 	return undefined;
 }
