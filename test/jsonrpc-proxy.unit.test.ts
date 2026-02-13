@@ -11,7 +11,7 @@ function buildPolicy(overrides: Partial<ProxyPolicy> = {}): ProxyPolicy {
 	return {
 		threshold: overrides.threshold ?? "caution",
 		onRisk: overrides.onRisk ?? "block",
-		allowPromptWhenSimulationFails: overrides.allowPromptWhenSimulationFails ?? true,
+		allowPromptWhenSimulationFails: overrides.allowPromptWhenSimulationFails ?? false,
 	};
 }
 
@@ -71,14 +71,28 @@ describe("jsonrpc proxy - unit", () => {
 		expect(calldata.chain).toBe("1");
 	});
 
-	test("decideRiskAction never forwards when simulation fails", () => {
+	test("decideRiskAction hard-blocks when simulation fails", () => {
 		const action = decideRiskAction({
 			recommendation: "ok",
 			simulationSuccess: false,
 			policy: buildPolicy({ threshold: "danger", onRisk: "prompt" }),
 			isInteractive: true,
 		});
-		expect(action).toBe("prompt");
+		expect(action).toBe("block");
+	});
+
+	test("decideRiskAction ignores prompt override when simulation fails", () => {
+		const action = decideRiskAction({
+			recommendation: "ok",
+			simulationSuccess: false,
+			policy: buildPolicy({
+				threshold: "danger",
+				onRisk: "prompt",
+				allowPromptWhenSimulationFails: true,
+			}),
+			isInteractive: true,
+		});
+		expect(action).toBe("block");
 	});
 
 	test("decideRiskAction blocks when non-interactive and risky", () => {
@@ -89,5 +103,34 @@ describe("jsonrpc proxy - unit", () => {
 			isInteractive: false,
 		});
 		expect(action).toBe("block");
+	});
+
+	test("decideRiskAction never returns prompt when simulation fails (exhaustive)", () => {
+		const recommendations = ["ok", "caution", "warning", "danger"] as const;
+		for (const recommendation of recommendations) {
+			for (const isInteractive of [true, false]) {
+				const action = decideRiskAction({
+					recommendation,
+					simulationSuccess: false,
+					policy: buildPolicy({
+						threshold: "caution",
+						onRisk: "prompt",
+						allowPromptWhenSimulationFails: true,
+					}),
+					isInteractive,
+				});
+				expect(action).toBe("block");
+			}
+		}
+	});
+
+	test("decideRiskAction forwards clean tx when simulation succeeds", () => {
+		const action = decideRiskAction({
+			recommendation: "ok",
+			simulationSuccess: true,
+			policy: buildPolicy({ threshold: "caution", onRisk: "prompt" }),
+			isInteractive: true,
+		});
+		expect(action).toBe("forward");
 	});
 });

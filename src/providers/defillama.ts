@@ -46,6 +46,18 @@ const KNOWN_PROTOCOL_ADDRESSES: Partial<Record<Chain, Record<string, ProtocolOve
 		"0xae7ab96520de3a18e5e111b5eaab095312d7fe84": { name: "Lido", slug: "lido" },
 		// Compound
 		"0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b": { name: "Compound", slug: "compound-finance" },
+		// Cap
+		"0xcccc62962d17b8914c62d74ffb843d73b2a3cccc": { name: "Cap", slug: "cap" },
+		"0xdb549616407f8a30799f77f12b6b85aec936782d": { name: "Cap", slug: "cap" },
+		// ether.fi / weETH adapter
+		"0xcfc6d9bd7411962bfe7145451a7ef71a24b6a7a2": {
+			name: "ether.fi/weETH adapter",
+			slug: "ether-fi-weeth-adapter",
+		},
+		"0xe87797a1afb329216811dfa22c87380128ca17d8": {
+			name: "ether.fi/weETH adapter",
+			slug: "ether-fi-weeth-adapter",
+		},
 	},
 };
 

@@ -114,12 +114,12 @@ describe("proxy wallet explainability output", () => {
 		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }));
 
 		expect(output).not.toContain("INCONCLUSIVE:");
-		expect(output).toContain("RECOMMENDATION: ⛔ BLOCK (UNVERIFIED)");
+		expect(output).toContain("RECOMMENDATION: ⛔ BLOCK (SIMULATION INCOMPLETE)");
 		expect(output).toContain(
 			"Why: Simulation coverage incomplete (top blocker: balance coverage incomplete). Action: rerun without --wallet for full coverage before signing.",
 		);
 		expect(output).not.toContain("See verdict for specific blockers and next step.");
-		expect(output).toContain("VERDICT: ⛔ BLOCK (UNVERIFIED)");
+		expect(output).toContain("VERDICT: ⛔ BLOCK (SIMULATION INCOMPLETE)");
 		expect(output).toContain(
 			"BLOCK — simulation coverage incomplete (balance coverage incomplete; approval coverage incomplete).",
 		);

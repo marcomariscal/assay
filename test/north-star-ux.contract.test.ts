@@ -300,8 +300,11 @@ describe("north-star pre-sign UX (contract)", () => {
 
 			// 4) Simulation-incomplete semantics (single non-redundant verdict line)
 			if (simulationUncertain) {
-				expect(normalizedActual).toContain("RECOMMENDATION: ⛔ BLOCK (UNVERIFIED)");
-				expect(normalizedActual).toContain("VERDICT: ⛔ BLOCK (UNVERIFIED)");
+				const hasSimFailed = normalizedActual.includes("BLOCK (SIMULATION FAILED)");
+				const hasSimIncomplete = normalizedActual.includes("BLOCK (SIMULATION INCOMPLETE)");
+				expect(hasSimFailed || hasSimIncomplete).toBe(true);
+				expect(normalizedActual).toContain("RECOMMENDATION: ⛔ BLOCK (SIMULATION");
+				expect(normalizedActual).toContain("VERDICT: ⛔ BLOCK (SIMULATION");
 				expect(normalizedActual).toContain("BLOCK — simulation coverage incomplete");
 				expect(normalizedActual).toContain("Next step: rerun");
 				expect(normalizedActual).not.toContain("⚠️ INCONCLUSIVE:");

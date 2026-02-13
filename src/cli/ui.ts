@@ -1,4 +1,5 @@
 import pc from "picocolors";
+import { decodeAbiParameters } from "viem";
 import { decodeKnownCalldata } from "../analyzers/calldata/decoder";
 import { KNOWN_SPENDERS } from "../approvals/known-spenders";
 import { getChainConfig } from "../chains";
@@ -293,8 +294,12 @@ function recommendationStyle(recommendation: Recommendation) {
 	}
 }
 
-function simulationCoverageBlockStyle() {
-	return { label: "BLOCK (UNVERIFIED)", icon: "⛔", color: COLORS.warning };
+function simulationCoverageBlockStyle(result: AnalysisResult) {
+	const label =
+		result.simulation && !result.simulation.success
+			? "BLOCK (SIMULATION FAILED)"
+			: "BLOCK (SIMULATION INCOMPLETE)";
+	return { label, icon: "⛔", color: COLORS.warning };
 }
 
 function simulationCoverageAction(mode: RenderMode): string {
@@ -1091,11 +1096,92 @@ function summarizeHexReasonData(data: string): string {
 	return `${data.slice(0, 18)}…${data.slice(-8)}`;
 }
 
+type KnownCustomErrorSpec = {
+	signature: string;
+	params: Array<{ name: string; type: "address" | "uint256" | "bytes32" }>;
+};
+
+const KNOWN_CUSTOM_ERROR_SPECS: Record<string, KnownCustomErrorSpec> = {
+	"0xe450d38c": {
+		signature: "ERC20InsufficientBalance(address,uint256,uint256)",
+		params: [
+			{ name: "sender", type: "address" },
+			{ name: "balance", type: "uint256" },
+			{ name: "needed", type: "uint256" },
+		],
+	},
+	"0xfb8f41b2": {
+		signature: "ERC20InsufficientAllowance(address,uint256,uint256)",
+		params: [
+			{ name: "spender", type: "address" },
+			{ name: "allowance", type: "uint256" },
+			{ name: "needed", type: "uint256" },
+		],
+	},
+	"0x118cdaa7": {
+		signature: "OwnableUnauthorizedAccount(address)",
+		params: [{ name: "account", type: "address" }],
+	},
+	"0xe2517d3f": {
+		signature: "AccessControlUnauthorizedAccount(address,bytes32)",
+		params: [
+			{ name: "account", type: "address" },
+			{ name: "role", type: "bytes32" },
+		],
+	},
+};
+
+function isHexReasonPayload(value: string): value is `0x${string}` {
+	if (!/^0x[0-9a-f]*$/i.test(value)) return false;
+	return value.length % 2 === 0;
+}
+
+function formatDecodedRevertValue(value: unknown): string {
+	if (typeof value === "bigint") return value.toString();
+	if (typeof value === "boolean") return value ? "true" : "false";
+	if (typeof value === "string") return value;
+	return String(value);
+}
+
+function decodeKnownCustomErrorDetail(
+	errorData: string,
+): { label: string; decodedArgs: boolean } | null {
+	const normalized = errorData.toLowerCase();
+	if (!isHexReasonPayload(normalized) || normalized.length < 10) return null;
+
+	const selector = normalized.slice(0, 10);
+	const spec = KNOWN_CUSTOM_ERROR_SPECS[selector];
+	if (!spec) return null;
+	if (spec.params.length === 0) {
+		return { label: spec.signature, decodedArgs: false };
+	}
+
+	const encoded = `0x${normalized.slice(10)}`;
+	if (!isHexReasonPayload(encoded)) {
+		return { label: spec.signature, decodedArgs: false };
+	}
+
+	try {
+		const decoded = decodeAbiParameters(spec.params, encoded);
+		const fields: string[] = [];
+		for (let i = 0; i < spec.params.length; i += 1) {
+			const param = spec.params[i];
+			const value = decoded[i];
+			fields.push(`${param.name}=${formatDecodedRevertValue(value)}`);
+		}
+		const errorName = spec.signature.split("(")[0] ?? spec.signature;
+		return { label: `${errorName}(${fields.join(", ")})`, decodedArgs: true };
+	} catch {
+		return { label: spec.signature, decodedArgs: false };
+	}
+}
+
 function knownErrorSelectorLabel(selector: string): string | null {
 	const normalized = selector.toLowerCase();
 	if (normalized === "0x4e487b71") return "panic(uint256)";
 	if (normalized === "0x08c379a0") return "error(string)";
-	return null;
+	const custom = KNOWN_CUSTOM_ERROR_SPECS[normalized];
+	return custom?.signature ?? null;
 }
 
 function formatSelectorDetail(errorData: string): string {
@@ -1105,12 +1191,19 @@ function formatSelectorDetail(errorData: string): string {
 	}
 
 	const selector = normalized.slice(0, 10);
-	const label = knownErrorSelectorLabel(selector);
+	const customDetail = decodeKnownCustomErrorDetail(normalized);
 	if (normalized.length === 10) {
+		if (customDetail) return `${customDetail.label}, selector ${selector}`;
+		const label = knownErrorSelectorLabel(selector);
 		if (!label) return `selector ${selector}`;
 		return `${label}, selector ${selector}`;
 	}
 
+	if (customDetail?.decodedArgs) {
+		return `${customDetail.label}, selector ${selector}`;
+	}
+
+	const label = customDetail?.label ?? knownErrorSelectorLabel(selector);
 	const data = summarizeHexReasonData(normalized);
 	if (!label) return `selector ${selector}, data ${data}`;
 	return `${label}, selector ${selector}, data ${data}`;
@@ -1690,6 +1783,7 @@ function addExplorerLink(
 ): void {
 	if (!isAddress(address)) return;
 	const normalizedAddress = address.toLowerCase();
+	if (isZeroAddress(normalizedAddress)) return;
 	const normalizedLabel = cleanLabel(label);
 	if (normalizedLabel.length === 0) return;
 	const existing = links.get(normalizedAddress);
@@ -1969,7 +2063,7 @@ function renderRecommendationSection(
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
 	const style = simulationUncertain
-		? simulationCoverageBlockStyle()
+		? simulationCoverageBlockStyle(result)
 		: recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(` 🎯 RECOMMENDATION: ${style.color(`${style.icon} ${style.label}`)}`);
@@ -2032,7 +2126,7 @@ function renderVerdictSection(
 	const simulationUncertain = simulationIsUncertain(result, hasCalldata);
 	const displayedRecommendation = recommendationForDisplay(result, hasCalldata, policy);
 	const recommendation = simulationUncertain
-		? simulationCoverageBlockStyle()
+		? simulationCoverageBlockStyle(result)
 		: recommendationStyle(displayedRecommendation);
 	const lines: string[] = [];
 	lines.push(
