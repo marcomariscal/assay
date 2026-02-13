@@ -38,7 +38,7 @@ describe("cli recommendation label with simulation failures", () => {
 		const verdictLine = output.split("\n").find((line) => line.includes("👉 VERDICT:"));
 		expect(verdictLine).toBeDefined();
 		expect(verdictLine).not.toContain("OK");
-		expect(verdictLine).toContain("BLOCK (UNVERIFIED)");
+		expect(verdictLine).toContain("BLOCK (SIMULATION FAILED)");
 		expect(output).toContain("BLOCK");
 		expect(output).not.toContain("- None detected");
 	});
@@ -52,7 +52,7 @@ describe("cli recommendation label with simulation failures", () => {
 		const verdictLine = output.split("\n").find((line) => line.includes("👉 VERDICT:"));
 		expect(verdictLine).toBeDefined();
 		expect(verdictLine).not.toContain("OK");
-		expect(verdictLine).toContain("BLOCK (UNVERIFIED)");
+		expect(verdictLine).toContain("BLOCK (SIMULATION INCOMPLETE)");
 		expect(output).toContain("BLOCK");
 		expect(output).not.toContain("- None detected");
 	});
@@ -72,7 +72,7 @@ describe("cli recommendation label with simulation failures", () => {
 		const verdictLine = output.split("\n").find((line) => line.includes("👉 VERDICT:"));
 		expect(verdictLine).toBeDefined();
 		expect(verdictLine).not.toContain("OK");
-		expect(verdictLine).toContain("BLOCK (UNVERIFIED)");
+		expect(verdictLine).toContain("BLOCK (SIMULATION INCOMPLETE)");
 		expect(output).toContain("BLOCK");
 		expect(output).toContain(
 			"Balance changes couldn't be fully verified — treat with extra caution.",
@@ -156,5 +156,73 @@ describe("cli recommendation label with simulation failures", () => {
 		expect(newContractIndex).toBeGreaterThanOrEqual(0);
 		expect(phishingIndex).toBeLessThan(unverifiedIndex);
 		expect(unverifiedIndex).toBeLessThan(newContractIndex);
+	});
+
+	test("explorer links suppress zero-address entries", () => {
+		const analysis: AnalysisResult = {
+			...baseAnalysis(),
+			simulation: {
+				success: true,
+				balances: { changes: [], confidence: "high" },
+				approvals: {
+					changes: [
+						{
+							standard: "erc20",
+							token: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+							owner: "0xfeed00000000000000000000000000000000beef",
+							spender: "0x0000000000000000000000000000000000000000",
+							amount: 0n,
+							scope: "token",
+						},
+					],
+					confidence: "high",
+				},
+				notes: [],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		// The zero-address spender appears in the approval line (revoke), but
+		// should NOT appear in the EXPLORER LINKS section as a link target.
+		const explorerSection = output.slice(output.indexOf("EXPLORER LINKS"));
+		expect(explorerSection).not.toContain("0x0000000000000000000000000000000000000000");
+		// Confirm the section exists and has other links
+		expect(output).toContain("EXPLORER LINKS");
+	});
+
+	test("custom revert ERC20InsufficientBalance decodes to readable message", () => {
+		// ERC20InsufficientBalance(address,uint256,uint256) selector: 0xe450d38c
+		const analysis: AnalysisResult = {
+			...baseAnalysis(),
+			simulation: {
+				success: false,
+				revertReason:
+					"execution reverted: custom error 0xe450d38c000000000000000000000000feed00000000000000000000000000000000beef00000000000000000000000000000000000000000000000000000000000000640000000000000000000000000000000000000000000000000000000000001000",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
+				notes: [],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).toContain("ERC20InsufficientBalance");
+		expect(output).toContain("selector 0xe450d38c");
+	});
+
+	test("unknown custom revert preserves selector with data summary", () => {
+		const analysis: AnalysisResult = {
+			...baseAnalysis(),
+			simulation: {
+				success: false,
+				revertReason: "execution reverted: custom error 0xdeadbeef",
+				balances: { changes: [], confidence: "low" },
+				approvals: { changes: [], confidence: "low" },
+				notes: [],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).toContain("selector 0xdeadbeef");
+		expect(output).toContain("contract error");
 	});
 });

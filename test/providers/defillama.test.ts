@@ -41,4 +41,40 @@ describe("defillama", () => {
 
 		expect(result).toBeNull();
 	});
+
+	bunTest("Cap proxy resolves without network lookup", async () => {
+		const result = await matchProtocol("0xcccc62962d17b8914c62d74ffb843d73b2a3cccc", "ethereum", {
+			allowNetwork: false,
+		});
+		expect(result).not.toBeNull();
+		expect(result?.name).toBe("Cap");
+		expect(result?.slug).toBe("cap");
+	});
+
+	bunTest("Cap implementation resolves without network lookup", async () => {
+		const result = await matchProtocol("0xdb549616407f8a30799f77f12b6b85aec936782d", "ethereum", {
+			allowNetwork: false,
+		});
+		expect(result).not.toBeNull();
+		expect(result?.name).toBe("Cap");
+		expect(result?.slug).toBe("cap");
+	});
+
+	bunTest("weETH adapter proxy resolves without network lookup", async () => {
+		const result = await matchProtocol("0xcfc6d9bd7411962bfe7145451a7ef71a24b6a7a2", "ethereum", {
+			allowNetwork: false,
+		});
+		expect(result).not.toBeNull();
+		expect(result?.name).toBe("ether.fi/weETH adapter");
+		expect(result?.slug).toBe("ether-fi-weeth-adapter");
+	});
+
+	bunTest("weETH adapter implementation resolves without network lookup", async () => {
+		const result = await matchProtocol("0xe87797a1afb329216811dfa22c87380128ca17d8", "ethereum", {
+			allowNetwork: false,
+		});
+		expect(result).not.toBeNull();
+		expect(result?.name).toBe("ether.fi/weETH adapter");
+		expect(result?.slug).toBe("ether-fi-weeth-adapter");
+	});
 });

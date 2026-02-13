@@ -85,8 +85,8 @@ describe("box width-aware wrapping", () => {
 
 		// Wrapping should change line breaks for long content
 		expect(narrow).not.toBe(wide);
-		// BLOCK (UNVERIFIED) should still appear in wrapped output
-		expect(narrow).toContain("BLOCK (UNVERIFIED)");
+		// BLOCK (SIMULATION FAILED) should still appear in wrapped output
+		expect(narrow).toContain("BLOCK (SIMULATION FAILED)");
 		// The full revert reason should still be present
 		expect(narrow).toContain("transferFrom failed");
 		// Recommendation label should be present

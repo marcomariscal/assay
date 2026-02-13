@@ -425,12 +425,13 @@ export function decideRiskAction(options: {
 	policy: ProxyPolicy;
 	isInteractive: boolean;
 }): RiskAction {
-	const isRisky = recommendationAtLeast(options.recommendation, options.policy.threshold);
 	const simulationFailed = !options.simulationSuccess;
-	if (!isRisky && !simulationFailed) return "forward";
+	if (simulationFailed) return "block";
+
+	const isRisky = recommendationAtLeast(options.recommendation, options.policy.threshold);
+	if (!isRisky) return "forward";
 
 	if (!options.isInteractive) return "block";
-	if (simulationFailed && !options.policy.allowPromptWhenSimulationFails) return "block";
 	return options.policy.onRisk;
 }
 
@@ -670,7 +671,7 @@ function defaultPolicy(options?: Partial<ProxyPolicy>): ProxyPolicy {
 	return {
 		threshold: options?.threshold ?? "caution",
 		onRisk: options?.onRisk ?? "prompt",
-		allowPromptWhenSimulationFails: options?.allowPromptWhenSimulationFails ?? true,
+		allowPromptWhenSimulationFails: options?.allowPromptWhenSimulationFails ?? false,
 	};
 }
 
