@@ -315,6 +315,9 @@ function simulationCoverageNextStepLine(mode: RenderMode): string {
 
 const UNLIMITED_APPROVAL_MITIGATION_LINE =
 	"Mitigation: prefer exact allowance and revoke existing approvals when appropriate.";
+const UNKNOWN_PROTOCOL_LABEL = "Not identified";
+const PROXY_UPGRADE_GUIDANCE_LINE =
+	"Guidance: proxy upgrade detected — verify admin authority and the new implementation address before signing.";
 
 const APPROVAL_ONLY_BALANCE_LINE = "No balance changes expected (approval only).";
 
@@ -579,6 +582,47 @@ function isPermit2CanonicalContract(result: AnalysisResult): boolean {
 	return result.contract.address.toLowerCase() === PERMIT2_CANONICAL_ADDRESS;
 }
 
+function isUnknownProtocolLabel(label: string): boolean {
+	const normalized = cleanLabel(label).toLowerCase();
+	return normalized === "unknown" || normalized === UNKNOWN_PROTOCOL_LABEL.toLowerCase();
+}
+
+function isApprovalForAllLane(result: AnalysisResult): boolean {
+	const hasApprovalForAllDelta =
+		result.simulation?.approvals.changes.some(
+			(approval) =>
+				(approval.standard === "erc721" || approval.standard === "erc1155") &&
+				approval.scope === "all",
+		) ?? false;
+	if (hasApprovalForAllDelta) return true;
+
+	const decoded = findDecodedCallContext(result.findings);
+	const functionName = decoded?.functionName?.toLowerCase() ?? "";
+	if (functionName === "setapprovalforall") return true;
+	const signature = decoded?.signature?.toLowerCase() ?? "";
+	return signature.startsWith("setapprovalforall(");
+}
+
+function parseCollectionFromApprovalForAllIntent(intent: string | undefined): string | null {
+	if (!intent) return null;
+	const match = /operator access to all (.+?) tokens/i.exec(intent);
+	if (!match?.[1]) return null;
+	const collectionName = cleanLabel(match[1]);
+	if (collectionName.length === 0) return null;
+	if (collectionName.toLowerCase() === "nft") return null;
+	return collectionName;
+}
+
+function protocolFromApprovalForAllCollection(result: AnalysisResult): string | null {
+	if (!isApprovalForAllLane(result)) return null;
+	const fromIntent = parseCollectionFromApprovalForAllIntent(result.intent);
+	if (fromIntent) return fromIntent;
+	if (!result.contract.name) return null;
+	const contractName = cleanLabel(result.contract.name);
+	if (contractName.length === 0) return null;
+	return contractName;
+}
+
 function formatProtocolDisplay(result: AnalysisResult): string {
 	if (isPermit2CanonicalContract(result)) return "Permit2";
 	if (result.protocolMatch?.name) return cleanLabel(result.protocolMatch.name);
@@ -586,11 +630,16 @@ function formatProtocolDisplay(result: AnalysisResult): string {
 	const fromFinding = protocolFromKnownProtocolFinding(result.findings);
 	if (fromFinding) return fromFinding;
 
-	if (!result.protocol) return "Unknown";
+	const collectionFallback = protocolFromApprovalForAllCollection(result);
+	if (collectionFallback) return collectionFallback;
+
+	if (!result.protocol) return UNKNOWN_PROTOCOL_LABEL;
 	const protocol = cleanLabel(result.protocol);
+	if (protocol.length === 0) return UNKNOWN_PROTOCOL_LABEL;
 	const separator = " — ";
 	const index = protocol.indexOf(separator);
-	return index === -1 ? protocol : protocol.slice(0, index);
+	const primary = index === -1 ? protocol : protocol.slice(0, index);
+	return primary.length > 0 ? primary : UNKNOWN_PROTOCOL_LABEL;
 }
 
 function normalizeProtocolKey(protocol: string): string {
@@ -630,7 +679,7 @@ function protocolResolutionCandidates(result: AnalysisResult): string[] {
 
 	if (candidates.length === 0) {
 		const fallback = formatProtocolDisplay(result);
-		if (fallback !== "Unknown") {
+		if (!isUnknownProtocolLabel(fallback)) {
 			add(fallback);
 		}
 	}
@@ -1711,6 +1760,31 @@ function hasProxyUpgradeableSignal(result: AnalysisResult): boolean {
 	);
 }
 
+function hasProxyUpgradeActionSignal(result: AnalysisResult): boolean {
+	const decoded = findDecodedCallContext(result.findings);
+	const functionName = decoded?.functionName?.toLowerCase() ?? "";
+	if (
+		functionName === "upgradeto" ||
+		functionName === "upgradetoandcall" ||
+		functionName === "upgrade" ||
+		functionName === "upgradeandcall"
+	) {
+		return true;
+	}
+
+	const signature = decoded?.signature?.toLowerCase() ?? "";
+	if (
+		signature.startsWith("upgradeto(") ||
+		signature.startsWith("upgradetoandcall(") ||
+		signature.startsWith("upgrade(") ||
+		signature.startsWith("upgradeandcall(")
+	) {
+		return true;
+	}
+
+	return (result.intent?.toLowerCase() ?? "").includes("upgrade proxy implementation");
+}
+
 function collectChecksFindings(result: AnalysisResult): Finding[] {
 	const deduped = new Map<string, Finding>();
 	const showProxyLine = hasProxyUpgradeableSignal(result);
@@ -2155,6 +2229,10 @@ function renderVerdictSection(
 		lines.push(COLORS.warning(` ${actionLine}`));
 	} else {
 		lines.push(COLORS.ok(` ${actionLine}`));
+	}
+
+	if (hasProxyUpgradeActionSignal(result)) {
+		lines.push(COLORS.warning(` ${PROXY_UPGRADE_GUIDANCE_LINE}`));
 	}
 
 	return lines;
