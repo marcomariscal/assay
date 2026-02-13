@@ -9,6 +9,12 @@ import { resolveScanChain, scanWithAnalysis } from "../scan";
 import type { AnalyzeResponse, AuthorizationEntry, CalldataInput, ScanInput } from "../schema";
 import { scanInputSchema } from "../schema";
 import { getAnvilClient } from "../simulations/anvil";
+import {
+	createProxyTelemetry,
+	type ProxyTelemetry,
+	type TelemetryDecision,
+	type TelemetryPromptResponse,
+} from "../telemetry";
 import { nowMs, TimingStore } from "../timing";
 import type { Chain, Config, Recommendation } from "../types";
 import {
@@ -45,6 +51,7 @@ export interface ProxyOptions {
 	quiet?: boolean;
 	showTimings?: boolean;
 	recordDir?: string;
+	telemetry?: ProxyTelemetry;
 	scanFn?: (
 		input: ScanInput,
 		options: {
@@ -417,6 +424,30 @@ function buildProxyBlockData(
 		}
 	}
 	return data;
+}
+
+function safeEmitTelemetry(emit: () => void): void {
+	try {
+		emit();
+	} catch {
+		// Telemetry is best-effort only.
+	}
+}
+
+function outcomeDecisionForBlock(outcome: ProxyScanOutcome): TelemetryDecision {
+	return outcome.simulationSuccess ? "blocked_policy" : "blocked_simulation";
+}
+
+function extractFindingCodesForTelemetry(outcome: ProxyScanOutcome): string[] {
+	const findings = outcome.response?.scan.findings;
+	if (!findings) return [];
+	const codes: string[] = [];
+	for (const finding of findings) {
+		if (!finding.code) continue;
+		codes.push(finding.code);
+		if (codes.length >= 5) break;
+	}
+	return codes;
 }
 
 export function decideRiskAction(options: {
@@ -889,6 +920,15 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 	let upstreamChainIdPromise: Promise<string | null> | null = null;
 	let interceptedHandled = 0;
 	let scanQueue: Promise<void> = Promise.resolve();
+	const telemetry =
+		options.telemetry ??
+		createProxyTelemetry({
+			onError: (error) => {
+				if (process.env.ASSAY_TELEMETRY_DEBUG !== "1") return;
+				const message = error instanceof Error ? error.message : String(error);
+				process.stderr.write(`telemetry error: ${message}\n`);
+			},
+		});
 
 	if (!options.scanFn) {
 		void (async () => {
@@ -988,6 +1028,13 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					unknownApprovalSpenders: false,
 				};
 				let scanErrored = false;
+				const correlationId = crypto.randomUUID();
+				let telemetryChain: string | null = null;
+				let telemetryActorAddress: string | undefined;
+				let telemetryToAddress: string | undefined;
+				let telemetryData = "0x";
+				let telemetryValue: string | undefined;
+				let telemetrySimulationStatus: "success" | "failed" | "not_run" = "not_run";
 
 				if (isSendTransactionMethod) {
 					const calldata =
@@ -1018,6 +1065,30 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					if (!chain) {
 						return isNotification ? null : jsonRpcError(id, -32602, "Unable to resolve chain");
 					}
+
+					telemetryChain = chain;
+					telemetryActorAddress = calldata.from;
+					telemetryToAddress = calldata.to;
+					telemetryData = calldata.data;
+					telemetryValue = calldata.value;
+					const telemetryMethod =
+						entry.method === "eth_sendRawTransaction"
+							? "eth_sendRawTransaction"
+							: "eth_sendTransaction";
+					safeEmitTelemetry(() => {
+						telemetry.emitScanStarted({
+							correlationId,
+							chain,
+							actorAddress: calldata.from,
+							to: calldata.to,
+							data: calldata.data,
+							value: calldata.value,
+							method: telemetryMethod,
+							inputKind: "calldata",
+							threshold: policy.threshold,
+							offline: Boolean(options.offline),
+						});
+					});
 
 					if (recordDir) {
 						recording = await initRecording({
@@ -1091,6 +1162,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 						};
 					}
 
+					telemetrySimulationStatus = outcome.simulationSuccess ? "success" : "failed";
 					allowlist = evaluateAllowlist({ calldata, config: scanConfig, outcome });
 				} else {
 					const typedDataPayload = extractSignTypedDataV4Payload(entry.params);
@@ -1104,6 +1176,25 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 						upstreamChainId,
 						requestedChain: options.chain,
 						calldataChain: assessment.chainId,
+					});
+					telemetryChain = resolvedChain;
+					telemetryActorAddress = typedDataPayload.account;
+					telemetryToAddress = assessment.spender ?? assessment.token;
+					telemetryData = "0x";
+					telemetryValue = undefined;
+					telemetrySimulationStatus = "not_run";
+					safeEmitTelemetry(() => {
+						telemetry.emitScanStarted({
+							correlationId,
+							chain: resolvedChain,
+							actorAddress: typedDataPayload.account,
+							to: assessment.spender ?? assessment.token,
+							data: "0x",
+							method: "eth_signTypedData_v4",
+							inputKind: "typed_data",
+							threshold: policy.threshold,
+							offline: Boolean(options.offline),
+						});
 					});
 
 					outcome = {
@@ -1130,6 +1221,22 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 							quiet,
 						});
 					}
+					safeEmitTelemetry(() => {
+						telemetry.emitUserActionOutcome({
+							correlationId,
+							chain: telemetryChain,
+							actorAddress: telemetryActorAddress,
+							to: telemetryToAddress,
+							data: telemetryData,
+							value: telemetryValue,
+							requestId: outcome.response?.requestId,
+							recommendation: outcome.recommendation,
+							decision: "blocked_disconnect",
+							prompted: false,
+							promptResponse: "na",
+							upstreamForwarded: false,
+						});
+					});
 					return isNotification
 						? null
 						: jsonRpcError(
@@ -1171,6 +1278,22 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					};
 				}
 
+				safeEmitTelemetry(() => {
+					telemetry.emitScanResult({
+						correlationId,
+						chain: telemetryChain,
+						actorAddress: telemetryActorAddress,
+						to: telemetryToAddress,
+						data: telemetryData,
+						value: telemetryValue,
+						requestId: outcome.response?.requestId,
+						recommendation: outcome.recommendation,
+						simulationStatus: telemetrySimulationStatus,
+						findingCodes: extractFindingCodesForTelemetry(outcome),
+						latencyMs: nowMs() - entryStarted,
+					});
+				});
+
 				const isInteractive = Boolean(process.stdin.isTTY && process.stdout.isTTY);
 				let action = decideRiskAction({
 					recommendation: outcome.recommendation,
@@ -1178,12 +1301,15 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					policy,
 					isInteractive,
 				});
+				let prompted = false;
+				let promptResponse: TelemetryPromptResponse = "na";
 
 				if (allowlist.violations.length > 0 && action === "forward") {
 					action = isInteractive ? policy.onRisk : "block";
 				}
 
 				if (action === "prompt") {
+					prompted = true;
 					const allowlistSummary = formatAllowlistSummary(allowlist);
 					const ok = await promptYesNo(
 						`Forward transaction anyway? (recommendation=${outcome.recommendation}, simulation=${
@@ -1191,6 +1317,7 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 						}${allowlistSummary}) [y/N] `,
 						{ signal: requestSignal },
 					);
+					promptResponse = ok ? "accept" : "deny";
 					if (!ok) {
 						if (!quiet) {
 							process.stdout.write("Blocked transaction.\n");
@@ -1204,6 +1331,22 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 								quiet,
 							});
 						}
+						safeEmitTelemetry(() => {
+							telemetry.emitUserActionOutcome({
+								correlationId,
+								chain: telemetryChain,
+								actorAddress: telemetryActorAddress,
+								to: telemetryToAddress,
+								data: telemetryData,
+								value: telemetryValue,
+								requestId: outcome.response?.requestId,
+								recommendation: outcome.recommendation,
+								decision: "blocked_user",
+								prompted,
+								promptResponse,
+								upstreamForwarded: false,
+							});
+						});
 						if (isNotification) return null;
 						return jsonRpcError(
 							id,
@@ -1227,6 +1370,22 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 							quiet,
 						});
 					}
+					safeEmitTelemetry(() => {
+						telemetry.emitUserActionOutcome({
+							correlationId,
+							chain: telemetryChain,
+							actorAddress: telemetryActorAddress,
+							to: telemetryToAddress,
+							data: telemetryData,
+							value: telemetryValue,
+							requestId: outcome.response?.requestId,
+							recommendation: outcome.recommendation,
+							decision: outcomeDecisionForBlock(outcome),
+							prompted,
+							promptResponse,
+							upstreamForwarded: false,
+						});
+					});
 					return isNotification
 						? null
 						: jsonRpcError(
@@ -1253,12 +1412,60 @@ export function createJsonRpcProxyServer(options: ProxyOptions) {
 					JSON.stringify(entry),
 				);
 				if (isNotification) {
+					safeEmitTelemetry(() => {
+						telemetry.emitUserActionOutcome({
+							correlationId,
+							chain: telemetryChain,
+							actorAddress: telemetryActorAddress,
+							to: telemetryToAddress,
+							data: telemetryData,
+							value: telemetryValue,
+							requestId: outcome.response?.requestId,
+							recommendation: outcome.recommendation,
+							decision: "forwarded",
+							prompted,
+							promptResponse,
+							upstreamForwarded: true,
+						});
+					});
 					return null;
 				}
 				const upstreamJson: unknown = await upstreamResponse.json().catch(() => null);
 				if (!isJsonRpcResponse(upstreamJson)) {
+					safeEmitTelemetry(() => {
+						telemetry.emitUserActionOutcome({
+							correlationId,
+							chain: telemetryChain,
+							actorAddress: telemetryActorAddress,
+							to: telemetryToAddress,
+							data: telemetryData,
+							value: telemetryValue,
+							requestId: outcome.response?.requestId,
+							recommendation: outcome.recommendation,
+							decision: "error",
+							prompted,
+							promptResponse,
+							upstreamForwarded: true,
+						});
+					});
 					return jsonRpcError(id, -32000, "Upstream returned invalid JSON");
 				}
+				safeEmitTelemetry(() => {
+					telemetry.emitUserActionOutcome({
+						correlationId,
+						chain: telemetryChain,
+						actorAddress: telemetryActorAddress,
+						to: telemetryToAddress,
+						data: telemetryData,
+						value: telemetryValue,
+						requestId: outcome.response?.requestId,
+						recommendation: outcome.recommendation,
+						decision: "forwarded",
+						prompted,
+						promptResponse,
+						upstreamForwarded: true,
+					});
+				});
 				return upstreamJson;
 			};
 
