@@ -300,6 +300,88 @@ describe("proxy wallet explainability output", () => {
 		expect(output).toContain("Protocol: Permit2");
 	});
 
+	test("uses neutral protocol fallback copy when protocol cannot be identified", () => {
+		const analysis: AnalysisResult = {
+			...buildBaseAnalysis(),
+			protocol: undefined,
+			protocolMatch: undefined,
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: false }));
+		expect(output).toContain("Protocol: Not identified");
+		expect(output).not.toContain("Protocol: Unknown");
+	});
+
+	test("uses collection-name protocol fallback for ApprovalForAll lanes", () => {
+		const analysis: AnalysisResult = {
+			...buildBaseAnalysis(),
+			contract: {
+				...buildBaseAnalysis().contract,
+				name: "Mirror MNFTs",
+				address: "0x84162fe2e695fedbf4d3bca1c3458fb616e44735",
+			},
+			protocol: undefined,
+			protocolMatch: undefined,
+			intent:
+				"Grant 0x1e0049783f008a0085193e00003d00cd54003c71 operator access to all Mirror MNFTs tokens",
+			simulation: {
+				success: true,
+				balances: { changes: [], confidence: "high" },
+				approvals: {
+					changes: [
+						{
+							standard: "erc1155",
+							token: "0x84162fe2e695fedbf4d3bca1c3458fb616e44735",
+							owner: "0xfeed00000000000000000000000000000000beef",
+							spender: "0x1e0049783f008a0085193e00003d00cd54003c71",
+							scope: "all",
+							approved: true,
+						},
+					],
+					confidence: "high",
+				},
+				notes: [],
+			},
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true }));
+		expect(output).toContain("Protocol: Mirror MNFTs");
+		expect(output).not.toContain("Protocol: Not identified");
+	});
+
+	test("adds proxy-upgrade-specific guidance line when upgrade action is detected", () => {
+		const analysis: AnalysisResult = {
+			...buildBaseAnalysis(),
+			contract: {
+				...buildBaseAnalysis().contract,
+				is_proxy: true,
+			},
+			intent:
+				"Upgrade proxy implementation to 0x1111111111111111111111111111111111111111 and run setup call",
+			findings: [
+				{
+					level: "warning",
+					code: "UPGRADEABLE",
+					message: "Upgradeable proxy (eip1967) - code can change",
+				},
+				{
+					level: "info",
+					code: "CALLDATA_DECODED",
+					message: "Decoded calldata",
+					details: {
+						functionName: "upgradeToAndCall",
+						signature: "upgradeToAndCall(address,bytes)",
+					},
+				},
+			],
+		};
+
+		const output = stripAnsi(renderResultBox(analysis, { hasCalldata: true, mode: "wallet" }));
+		expect(output).toContain(
+			"Guidance: proxy upgrade detected — verify admin authority and the new implementation address before signing.",
+		);
+	});
+
 	test("dedupes verified/proxy checks in default + wallet output", () => {
 		const analysis: AnalysisResult = {
 			...buildBaseAnalysis(),
